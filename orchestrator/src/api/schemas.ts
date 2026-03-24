@@ -40,6 +40,8 @@ export const rawItemSchema = z.object({
   url: z.string().url().optional(),
   publishedAt: publishedAtSchema,
   sourceId: z.string().optional(),
+  /** Gắn bài crawl với một dòng Nguồn RSS (admin); ưu tiên hơn `trendContentSourceId` ở body job. */
+  trendContentSourceId: z.string().uuid().optional(),
 });
 
 export const channelSchema = z.object({
@@ -58,6 +60,8 @@ export const runTrendJobBodySchema = z
     channel: channelSchema.optional(),
     /** Bỏ qua lọc bài đã xử lý trend gần đây (theo bảng crawled_article). */
     skipArticleDedup: z.boolean().optional(),
+    /** Liên kết bài crawl tới bản ghi Nguồn RSS (admin); phải trùng `domain` với nguồn. */
+    trendContentSourceId: z.string().uuid().optional(),
   })
   .superRefine((data, ctx) => {
     const domain = data.domain ?? "sports-vn";

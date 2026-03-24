@@ -4,6 +4,8 @@ export type ListCrawledArticlesInput = {
   domain?: string;
   q?: string;
   processed: "all" | "yes" | "no";
+  /** Lọc theo bản ghi Nguồn RSS (admin). */
+  trendContentSourceId?: string;
   limit: number;
   offset: number;
 };
@@ -19,6 +21,10 @@ const listSelect = {
   firstSeenAt: true,
   lastSeenAt: true,
   processedForTrendAt: true,
+  trendContentSourceId: true,
+  trendContentSource: {
+    select: { id: true, label: true, feedUrl: true },
+  },
 } as const;
 
 function buildCrawledArticleWhere(input: ListCrawledArticlesInput): Prisma.CrawledArticleWhereInput {
@@ -33,6 +39,9 @@ function buildCrawledArticleWhere(input: ListCrawledArticlesInput): Prisma.Crawl
   }
   if (input.processed === "yes") where.processedForTrendAt = { not: null };
   if (input.processed === "no") where.processedForTrendAt = null;
+  if (input.trendContentSourceId?.trim()) {
+    where.trendContentSourceId = input.trendContentSourceId.trim();
+  }
   return where;
 }
 

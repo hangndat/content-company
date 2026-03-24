@@ -5,6 +5,7 @@ export type CrawlItemShape = {
   body?: string;
   url?: string;
   sourceId?: string;
+  trendContentSourceId?: string;
 };
 
 /** Khóa ổn định: ưu tiên domain+URL; không có URL thì domain+title+đoạn body. */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Space, Tag, Typography } from "antd";
+import { Alert, Button, Descriptions, Space, Tag, Tooltip, Typography } from "antd";
 import { api } from "@/lib/api";
 import type { TrendCandidate } from "@/features/ops/models/job";
 import { resolveArticlesForTopic, TopicArticlesBlock } from "@/features/ops/components/TopicArticlesBlock";
@@ -15,6 +15,12 @@ import { ErrorState } from "@/shared/components/ErrorState";
 import { RunJobModal } from "@/features/ops/components/RunJobModal";
 
 const { Paragraph, Title } = Typography;
+
+function isUsableTrendCandidate(c: TrendCandidate | Record<string, unknown> | null): c is TrendCandidate {
+  if (c == null || typeof c !== "object") return false;
+  const topic = (c as TrendCandidate).topic;
+  return typeof topic === "string" && topic.trim().length > 0;
+}
 
 type DetailPayload = {
   observation: {
@@ -91,6 +97,13 @@ export default function TrendTopicDetailPage() {
   const c = candidate as TrendCandidate | null;
   const displayTopic = c?.topic ?? observation.topicTitle;
   const articles = resolveArticlesForTopic(c);
+  const jobCompleted = job.status === "completed";
+  const canRunContentFromTopic = jobCompleted && isUsableTrendCandidate(candidate);
+  const contentRunTooltip = !jobCompleted
+    ? "Chỉ chạy pipeline nội dung khi job trend đã hoàn thành."
+    : !isUsableTrendCandidate(candidate)
+      ? "Không có candidate hợp lệ từ output job (thiếu tiêu đề topic hoặc dữ liệu đã đổi)."
+      : "";
 
   return (
     <PageShell>
@@ -124,9 +137,17 @@ export default function TrendTopicDetailPage() {
           </Descriptions>
           <Space wrap style={{ marginTop: 8 }}>
             <Link to={`/jobs/${job.id}`}>Mở đầy đủ job trend →</Link>
-            <Button type="primary" onClick={() => setRunContentOpen(true)}>
-              Chạy pipeline nội dung từ topic này
-            </Button>
+            <Tooltip title={!canRunContentFromTopic ? contentRunTooltip : undefined}>
+              <span>
+                <Button
+                  type="primary"
+                  disabled={!canRunContentFromTopic}
+                  onClick={() => setRunContentOpen(true)}
+                >
+                  Chạy pipeline nội dung từ topic này
+                </Button>
+              </span>
+            </Tooltip>
           </Space>
         </PageSectionCard>
 

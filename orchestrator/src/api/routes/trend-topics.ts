@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { createTrendTopicObservationRepo } from "../../repos/trend-topic-observation.js";
-import { articleCountFromCandidate } from "../../lib/trend-candidate-display.js";
 import { ERROR_CODES, formatErrorResponse } from "../middleware/error.js";
 
 const listQuerySchema = z.object({
@@ -77,21 +76,16 @@ export async function registerTrendTopicsRoutes(
       offset,
     });
 
-    const items = rows.map((r) => {
-      const raw = r.job.outputs?.trendCandidates;
-      const candidates = Array.isArray(raw) ? raw : [];
-      const c = candidates[r.candidateIndex];
-      return {
-        id: r.id,
-        fingerprint: r.fingerprint,
-        trendDomain: r.trendDomain,
-        sourceJobId: r.sourceJobId,
-        candidateIndex: r.candidateIndex,
-        topicTitle: r.topicTitle,
-        createdAt: r.createdAt.toISOString(),
-        articleCount: articleCountFromCandidate(c),
-      };
-    });
+    const items = rows.map((r) => ({
+      id: r.id,
+      fingerprint: r.fingerprint,
+      trendDomain: r.trendDomain,
+      sourceJobId: r.sourceJobId,
+      candidateIndex: r.candidateIndex,
+      topicTitle: r.topicTitle,
+      createdAt: r.createdAt.toISOString(),
+      articleCount: r.articleCount,
+    }));
 
     return { items, total };
   });

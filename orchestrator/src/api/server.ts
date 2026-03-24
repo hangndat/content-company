@@ -15,6 +15,7 @@ import { registerDashboardRoutes } from "./routes/dashboard.js";
 import { registerPublishedRoutes } from "./routes/published.js";
 import { registerTrendTopicsRoutes } from "./routes/trend-topics.js";
 import { registerCrawledArticlesRoutes } from "./routes/crawled-articles.js";
+import { registerTrendContentSourceRoutes } from "./routes/trend-sources.js";
 import { registerContentDraftRoutes } from "./routes/content-drafts.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
 import { registerErrorHandler } from "./middleware/error.js";
@@ -86,6 +87,10 @@ export async function createServer(deps: ServerDeps) {
   await registerPublishedRoutes(app, { publishedRepo: repos.published });
   await registerTrendTopicsRoutes(app, { trendTopicObservationRepo: repos.trendTopicObservation });
   await registerCrawledArticlesRoutes(app, { crawledArticleRepo: repos.crawledArticle });
+  await registerTrendContentSourceRoutes(app, {
+    trendContentSourceRepo: repos.trendContentSource,
+    jobService: deps.jobService,
+  });
   await registerContentDraftRoutes(app, { contentDraftRepo: repos.contentDraft });
   await registerObservabilityRoutes(app, deps.env);
 

@@ -46,6 +46,8 @@ model TrendTopicObservation {
   sourceJobId    String   @map("source_job_id")
   candidateIndex Int      @map("candidate_index")
   topicTitle     String   @map("topic_title") @db.VarChar(512)
+  /// Số bài trong cụm (đồng bộ khi trend job ghi observation); dùng sort + phân trang list.
+  articleCount   Int      @default(0) @map("article_count")
   createdAt      DateTime @default(now()) @map("created_at")
 
   job Job @relation(fields: [sourceJobId], references: [id], onDelete: Cascade)
@@ -53,25 +55,51 @@ model TrendTopicObservation {
   @@index([fingerprint])
   @@index([sourceJobId])
   @@index([trendDomain])
+  @@index([articleCount(sort: Desc), createdAt(sort: Desc)])
+  @@index([trendDomain, articleCount(sort: Desc), createdAt(sort: Desc)])
   @@map("trend_topic_observation")
+}
+
+/// Nguồn RSS (hoặc tương thích) đăng ký trong admin — fetch & chạy trend không cần n8n.
+model TrendContentSource {
+  id             String    @id @default(uuid())
+  trendDomain    String    @map("trend_domain") @db.VarChar(64)
+  kind           String    @default("rss") @db.VarChar(32)
+  label          String?   @db.VarChar(255)
+  feedUrl        String    @map("feed_url") @db.VarChar(2048)
+  enabled        Boolean   @default(true)
+  lastFetchedAt  DateTime? @map("last_fetched_at")
+  lastItemCount  Int?      @map("last_item_count")
+  lastError      String?   @map("last_error") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  crawledArticles CrawledArticle[]
+
+  @@index([trendDomain])
+  @@index([enabled])
+  @@map("trend_content_source")
 }
 
 /// Bài crawl / RSS lưu theo khóa ổn định; tránh đưa cùng một bài vào trend job lặp trong cửa sổ thời gian.
 model CrawledArticle {
-  id                  String    @id @default(uuid())
-  dedupeKey           String    @unique @map("dedupe_key") @db.VarChar(64)
-  trendDomain         String    @map("trend_domain") @db.VarChar(64)
-  url                 String?   @db.VarChar(2048)
-  title               String    @db.VarChar(512)
-  bodyPreview         String?   @map("body_preview") @db.Text
-  sourceId            String?   @map("source_id") @db.VarChar(128)
-  rawPayload          Json?     @map("raw_payload")
-  firstSeenAt         DateTime  @default(now()) @map("first_seen_at")
-  lastSeenAt          DateTime  @updatedAt @map("last_seen_at")
-  processedForTrendAt DateTime? @map("processed_for_trend_at")
+  id                     String             @id @default(uuid())
+  dedupeKey              String             @unique @map("dedupe_key") @db.VarChar(64)
+  trendDomain            String             @map("trend_domain") @db.VarChar(64)
+  url                    String?            @db.VarChar(2048)
+  title                  String             @db.VarChar(512)
+  bodyPreview            String?            @map("body_preview") @db.Text
+  sourceId               String?            @map("source_id") @db.VarChar(128)
+  rawPayload             Json?              @map("raw_payload")
+  firstSeenAt            DateTime           @default(now()) @map("first_seen_at")
+  lastSeenAt             DateTime           @updatedAt @map("last_seen_at")
+  processedForTrendAt    DateTime?          @map("processed_for_trend_at")
+  trendContentSourceId   String?            @map("trend_content_source_id")
+  trendContentSource     TrendContentSource? @relation(fields: [trendContentSourceId], references: [id], onDelete: SetNull)
 
   @@index([trendDomain])
   @@index([processedForTrendAt])
+  @@index([trendContentSourceId])
   @@map("crawled_article")
 }
 

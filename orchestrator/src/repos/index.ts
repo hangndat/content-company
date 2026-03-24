@@ -7,6 +7,7 @@ import { createPromptVersionRepo } from "./prompt-version.js";
 import { createCrawledArticleRepo } from "./crawled-article.js";
 import { createTrendTopicObservationRepo } from "./trend-topic-observation.js";
 import { createContentMetricRepo } from "./content-metric.js";
+import { createTrendContentSourceRepo } from "./trend-content-source.js";
 
 export function createRepos(db: PrismaClient) {
   return {
@@ -18,6 +19,7 @@ export function createRepos(db: PrismaClient) {
     crawledArticle: createCrawledArticleRepo(db),
     trendTopicObservation: createTrendTopicObservationRepo(db),
     contentMetric: createContentMetricRepo(db),
+    trendContentSource: createTrendContentSourceRepo(db),
   };
 }
 

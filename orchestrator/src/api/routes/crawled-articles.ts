@@ -7,6 +7,7 @@ const listQuerySchema = z.object({
   domain: z.string().min(1).max(64).optional(),
   q: z.string().min(1).max(200).optional(),
   processed: z.enum(["all", "yes", "no"]).optional().default("all"),
+  trendContentSourceId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -24,7 +25,7 @@ export async function registerCrawledArticlesRoutes(
         formatErrorResponse(ERROR_CODES.VALIDATION_ERROR, "Invalid query", parsed.error.flatten())
       );
     }
-    const { domain, q, processed, limit: lim, offset: off } = parsed.data;
+    const { domain, q, processed, trendContentSourceId, limit: lim, offset: off } = parsed.data;
     const limit = lim ?? 50;
     const offset = off ?? 0;
 
@@ -32,6 +33,7 @@ export async function registerCrawledArticlesRoutes(
       domain,
       q,
       processed,
+      trendContentSourceId,
       limit,
       offset,
     });
@@ -45,6 +47,14 @@ export async function registerCrawledArticlesRoutes(
         title: r.title,
         bodyPreview: r.bodyPreview,
         sourceId: r.sourceId,
+        trendContentSourceId: r.trendContentSourceId,
+        rssSource: r.trendContentSource
+          ? {
+              id: r.trendContentSource.id,
+              label: r.trendContentSource.label,
+              feedUrl: r.trendContentSource.feedUrl,
+            }
+          : null,
         firstSeenAt: r.firstSeenAt.toISOString(),
         lastSeenAt: r.lastSeenAt.toISOString(),
         processedForTrendAt: r.processedForTrendAt?.toISOString() ?? null,

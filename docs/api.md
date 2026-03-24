@@ -35,6 +35,8 @@ Run a trend aggregate job (`sourceType: trend_aggregate`). Response shape: `{ jo
 **Body:**
 - `domain` (optional, default `sports-vn`): profile in orchestrator `trends/domain-profiles.ts` (`generic` = map source by hostname only).
 - `rawItems[]`: each item needs `title`, `body` (min length enforced in normalize). **Resolvable source:** either `url` (HTTP(S) URL whose host maps for the domain) **or** explicit `sourceId` (required when there is no URL or host is unknown). Validation returns 400 with field hints if any item resolves to `unknown`.
+- `trendContentSourceId` (optional, UUID): job-level default — links every ingested row in `crawled_article` to that **Trend content source** row (admin); must match `domain`.
+- Per item, optional `trendContentSourceId` (UUID): overrides the job-level value for that row only (n8n multi-feed: one POST with mixed sources). All referenced IDs must exist and match `domain`.
 - `channel` (optional): same shape as content jobs.
 
 **GET** `/v1/jobs/:jobId` or `/detail`: completed trend jobs expose `output.trendCandidates`.

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type { TrendCandidate } from "../trends/trend-candidate.js";
+import { articleCountFromCandidate } from "../lib/trend-candidate-display.js";
 import { trendTopicFingerprint } from "../trends/topic-fingerprint.js";
 
 export async function syncTrendTopicObservations(
@@ -20,6 +21,7 @@ export async function syncTrendTopicObservations(
       sourceJobId,
       candidateIndex,
       topicTitle: c.topic.slice(0, 512),
+      articleCount: articleCountFromCandidate(c),
     })),
   });
 }

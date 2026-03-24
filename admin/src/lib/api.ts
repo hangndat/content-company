@@ -64,6 +64,41 @@ function formatApiError(status: number, statusText: string, parsed: unknown): st
   return msg;
 }
 
+export async function fetchPatch<T>(path: string, body?: Record<string, unknown>): Promise<T> {
+  const url = `${window.location.origin}${API_BASE}${path}`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = null;
+  }
+  if (!res.ok) throw new Error(formatApiError(res.status, res.statusText, parsed));
+  return parsed as T;
+}
+
+export async function fetchDelete(path: string): Promise<void> {
+  const url = `${window.location.origin}${API_BASE}${path}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (res.status === 204) return;
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = null;
+  }
+  if (!res.ok) throw new Error(formatApiError(res.status, res.statusText, parsed));
+}
+
 export async function fetchPost<T>(path: string, body?: Record<string, unknown>): Promise<T> {
   const url = `${window.location.origin}${API_BASE}${path}`;
   const res = await fetch(url, {
@@ -162,10 +197,99 @@ export const api = {
       job: { id: string; status: string; completedAt: string | null };
       candidate: TrendCandidate | null;
     }>(`/trend-topics/${id}`),
+  trendSources: (p?: { domain?: string; limit?: number; offset?: number }) =>
+    fetchApi<{
+      items: Array<{
+        id: string;
+        trendDomain: string;
+        kind: string;
+        label: string | null;
+        feedUrl: string;
+        enabled: boolean;
+        lastFetchedAt: string | null;
+        lastItemCount: number | null;
+        lastError: string | null;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      total: number;
+    }>(`/trend-sources`, p as Record<string, string | number>),
+  createTrendSource: (body: {
+    trendDomain: string;
+    kind?: "rss";
+    label?: string | null;
+    feedUrl: string;
+    enabled?: boolean;
+  }) =>
+    fetchPost<{
+      id: string;
+      trendDomain: string;
+      kind: string;
+      label: string | null;
+      feedUrl: string;
+      enabled: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/trend-sources`, body),
+  patchTrendSource: (
+    id: string,
+    body: Partial<{
+      trendDomain: string;
+      kind: "rss";
+      label: string | null;
+      feedUrl: string;
+      enabled: boolean;
+    }>
+  ) =>
+    fetchPatch<{
+      id: string;
+      trendDomain: string;
+      kind: string;
+      label: string | null;
+      feedUrl: string;
+      enabled: boolean;
+      lastFetchedAt: string | null;
+      lastItemCount: number | null;
+      lastError: string | null;
+      updatedAt: string;
+    }>(`/trend-sources/${id}`, body),
+  deleteTrendSource: (id: string) => fetchDelete(`/trend-sources/${id}`),
+  previewTrendSource: (id: string, body?: { itemLimit?: number }) =>
+    fetchPost<{
+      feedUrl: string;
+      trendDomain: string;
+      itemCount: number;
+      skippedShortBody: number;
+      skippedNoUrl: number;
+      unresolvedSourceCount: number;
+      trendJobValidationOk: boolean;
+      trendJobValidationError: unknown;
+      items: Array<{
+        title: string;
+        body: string;
+        url?: string;
+        publishedAt?: string;
+        resolvedSourceId: string;
+      }>;
+    }>(`/trend-sources/${id}/preview`, body ?? {}),
+  runTrendFromSource: (
+    id: string,
+    body?: { itemLimit?: number; skipArticleDedup?: boolean; channel?: Record<string, unknown> }
+  ) =>
+    fetchPost<{
+      jobId: string;
+      traceId: string;
+      status: string;
+      createdAt: string;
+      completedAt: string | null;
+      duplicate: boolean;
+      itemCount: number;
+    }>(`/trend-sources/${id}/run-trend`, body ?? {}),
   crawledArticles: (p?: {
     domain?: string;
     q?: string;
     processed?: "all" | "yes" | "no";
+    trendContentSourceId?: string;
     limit?: number;
     offset?: number;
   }) =>
@@ -178,6 +302,8 @@ export const api = {
         title: string;
         bodyPreview: string | null;
         sourceId: string | null;
+        trendContentSourceId: string | null;
+        rssSource: { id: string; label: string | null; feedUrl: string } | null;
         firstSeenAt: string;
         lastSeenAt: string;
         processedForTrendAt: string | null;
@@ -187,6 +313,7 @@ export const api = {
   runTrendJob: (body: {
     domain?: string;
     skipArticleDedup?: boolean;
+    trendContentSourceId?: string;
     rawItems: Array<{
       title: string;
       body?: string;

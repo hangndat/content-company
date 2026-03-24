@@ -129,7 +129,7 @@ export default function TrendTopicsPage() {
     <PageShell>
       <AppPageHeader
         title="Thư viện topic"
-        description="Mỗi dòng là một topic đã ghi nhận khi trend job hoàn thành. Nút Chạy pipeline mở form job nội dung với đúng job trend và chỉ số topic; hoặc vào chi tiết topic / job."
+        description="Mỗi dòng là một topic đã ghi nhận khi trend job hoàn thành. Danh sách sắp theo số bài (giảm dần), rồi mới theo thời gian ghi. Nút Chạy pipeline mở form job nội dung với đúng job trend và chỉ số topic; hoặc vào chi tiết topic / job."
       />
       <PageToolbar>
         <ProForm<FilterForm>

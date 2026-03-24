@@ -610,16 +610,38 @@ const parseTime = (s) => {
   const t = Date.parse(s);
   return Number.isNaN(t) ? 0 : t;
 };
+
+/**
+ * Map hostname → UUID từ admin (Nguồn RSS). Mỗi feed đăng ký trong DB có một id.
+ * Ví dụ: 'vnexpress.net': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+ * Để trống {}: orchestrator tự gắn nếu DB có Nguồn RSS (cùng domain) khớp URL bài. Map tay = ghi đè khi cần.
+ */
+const HOST_TO_TREND_SOURCE_ID = {
+};
+
+function trendSourceIdForUrl(url) {
+  if (!url || typeof url !== 'string') return undefined;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, '').toLowerCase();
+    return HOST_TO_TREND_SOURCE_ID[host];
+  } catch {
+    return undefined;
+  }
+}
+
 const items = $input.all();
 let rawItems = items.map(i => {
   const body = (i.json.content || i.json.description || i.json.contentSnippet || '').trim();
-  return {
+  const url = i.json.link || i.json.url;
+  const tid = trendSourceIdForUrl(url);
+  const base = {
     id: i.json.guid || i.json.link,
     title: (i.json.title || '').trim(),
     body: body.length > MAX_BODY ? body.slice(0, MAX_BODY) : body,
-    url: i.json.link || i.json.url,
+    url: url || undefined,
     publishedAt: i.json.isoDate || i.json.pubDate
   };
+  return tid ? { ...base, trendContentSourceId: tid } : base;
 }).filter(x => x.title && x.body && x.body.length >= 50);
 rawItems.sort((a, b) => parseTime(b.publishedAt) - parseTime(a.publishedAt));
 if (rawItems.length === 0) {

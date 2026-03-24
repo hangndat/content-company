@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Button, Descriptions, Form, Table, Tag, Tooltip, Typography } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
+import { Button, Descriptions, Form, Space, Table, Tag, Tooltip, Typography } from "antd";
+import { LineChartOutlined, ReloadOutlined } from "@ant-design/icons";
 import { ProForm, ProFormSelect } from "@ant-design/pro-components";
 import { jobService } from "@/features/ops/services/jobService";
 import type { JobListItem } from "@/features/ops/models/job";
@@ -12,6 +12,7 @@ import { ErrorState } from "@/shared/components/ErrorState";
 import { PageShell } from "@/shared/components/PageShell";
 import { PageToolbar } from "@/shared/components/PageToolbar";
 import { PageTableCard } from "@/shared/components/PageTableCard";
+import { RunTrendJobModal } from "@/features/ops/components/RunTrendJobModal";
 import { formatJobDuration } from "@/features/ops/utils/formatJobDuration";
 
 const STATUS_OPTIONS = [
@@ -59,6 +60,7 @@ export default function JobsListPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
   const [sourceType, setSourceType] = useState<string>("");
+  const [trendModalOpen, setTrendModalOpen] = useState(false);
 
   useEffect(() => {
     filterForm.setFieldsValue({ status, sourceType });
@@ -203,9 +205,19 @@ export default function JobsListPage() {
             allowClear={false}
           />
         </ProForm>
-        <Button icon={<ReloadOutlined />} onClick={() => load()} loading={loading} aria-label="Làm mới danh sách job">
-          Làm mới
-        </Button>
+        <Space wrap>
+          <Button
+            type="primary"
+            icon={<LineChartOutlined />}
+            onClick={() => setTrendModalOpen(true)}
+            aria-label="Chạy job trend"
+          >
+            Chạy job trend
+          </Button>
+          <Button icon={<ReloadOutlined />} onClick={() => load()} loading={loading} aria-label="Làm mới danh sách job">
+            Làm mới
+          </Button>
+        </Space>
       </PageToolbar>
       <PageTableCard>
         <Table<JobListItem>
@@ -266,6 +278,7 @@ export default function JobsListPage() {
           locale={{ emptyText: "Không có job nào." }}
         />
       </PageTableCard>
+      <RunTrendJobModal open={trendModalOpen} onClose={() => setTrendModalOpen(false)} />
     </PageShell>
   );
 }

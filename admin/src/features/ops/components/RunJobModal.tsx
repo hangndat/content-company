@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { App, Typography } from "antd";
+import { Alert, App, Typography } from "antd";
 import { ModalForm, ProFormDependency, ProFormDigit, ProFormSelect, ProFormText } from "@ant-design/pro-components";
 import { api } from "@/lib/api";
 import { DEFAULT_CHANNEL_FIELDS } from "@/features/ops/constants/jobRunForm";
@@ -26,6 +26,7 @@ export function RunJobModal({
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { submitting, guard } = useOpsModalSubmit();
+  const trendIdTrimmed = initialTrendJobId?.trim() ?? "";
 
   return (
     <ModalForm
@@ -86,6 +87,26 @@ export function RunJobModal({
         })
       }
     >
+      {trendIdTrimmed ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={
+            <span>
+              Nguồn từ trend job{" "}
+              <Typography.Text copyable={{ text: trendIdTrimmed }} code>
+                {trendIdTrimmed.slice(0, 8)}…
+              </Typography.Text>
+            </span>
+          }
+          description={
+            initialTopicIndex != null
+              ? `Đã cố định chỉ số topic (0-based): ${initialTopicIndex}. Chỉ candidate này được đưa vào pipeline nội dung.`
+              : "Chưa cố định chỉ số topic — để trống ô «Chỉ số topic» bên dưới sẽ gộp mọi candidate của trend job vào một job nội dung."
+          }
+        />
+      ) : null}
       <ProFormText
         name="trendJobId"
         label="Trend job ID (UUID)"

@@ -5,7 +5,7 @@ const { Title, Text } = Typography;
 
 interface AppPageHeaderProps {
   title: string;
-  description?: string;
+  description?: ReactNode;
   /** Nút làm mới, v.v. — căn phải trên desktop, xuống dòng trên mobile. */
   extra?: ReactNode;
 }

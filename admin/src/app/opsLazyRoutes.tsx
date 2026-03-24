@@ -11,6 +11,7 @@ import {
   LineChartOutlined,
   FileSearchOutlined,
   FileTextOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 
 /** Menu cạnh: nhóm Trend & crawl = nguồn tin → fingerprint topic. */
@@ -21,10 +22,12 @@ export const opsProLayoutRoute = {
     { path: "/jobs", name: "Job", icon: <UnorderedListOutlined /> },
     { path: "/content-drafts", name: "Draft nội dung", icon: <FileTextOutlined /> },
     {
+      /** Không trùng path với mục con — trùng key khiến Menu highlight/hover sai (2 dòng cùng sáng). */
       path: "/trend-crawl",
       name: "Trend & crawl",
       icon: <LineChartOutlined />,
       routes: [
+        { path: "/trend-sources", name: "Nguồn RSS", icon: <GlobalOutlined /> },
         { path: "/crawled-articles", name: "Bài đã crawl", icon: <FileSearchOutlined /> },
         { path: "/trend-topics", name: "Thư viện topic", icon: <TagsOutlined /> },
       ],
@@ -49,6 +52,7 @@ export const LazySettingsPage = lazy(() => import("@/features/ops/pages/Settings
 export const LazyTrendTopicsPage = lazy(() => import("@/features/ops/pages/TrendTopicsPage"));
 export const LazyTrendTopicDetailPage = lazy(() => import("@/features/ops/pages/TrendTopicDetailPage"));
 export const LazyCrawledArticlesPage = lazy(() => import("@/features/ops/pages/CrawledArticlesPage"));
+export const LazyTrendSourcesPage = lazy(() => import("@/features/ops/pages/TrendSourcesPage"));
 export const LazyContentDraftsPage = lazy(() => import("@/features/ops/pages/ContentDraftsPage"));
 
 export function OpsAppRoutes() {
@@ -59,6 +63,7 @@ export function OpsAppRoutes() {
       <Route path="/jobs/:id" element={<LazyJobDetailPage />} />
       <Route path="/content-drafts" element={<LazyContentDraftsPage />} />
       <Route path="/trend-crawl" element={<Navigate to="/crawled-articles" replace />} />
+      <Route path="/trend-sources" element={<LazyTrendSourcesPage />} />
       <Route path="/crawled-articles" element={<LazyCrawledArticlesPage />} />
       <Route path="/trend-topics/:id" element={<LazyTrendTopicDetailPage />} />
       <Route path="/trend-topics" element={<LazyTrendTopicsPage />} />

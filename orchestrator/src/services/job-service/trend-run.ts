@@ -14,6 +14,7 @@ import {
   filterRawItemsForTrendDedup,
   ingestCrawledArticles,
 } from "../crawled-articles.js";
+import { enrichItemsTrendContentSourceFromRegistry } from "../../lib/trend-source-auto-link.js";
 
 export type TrendRunCtx = {
   db: PrismaClient;
@@ -35,9 +36,44 @@ export async function runTrendJobFlow(input: RunTrendJobInput, ctx: TrendRunCtx)
     domain = DEFAULT_TREND_DOMAIN,
     rawItems: incomingRawItems,
     channel,
+    trendContentSourceId,
   } = input;
 
-  await ingestCrawledArticles(db, domain, incomingRawItems);
+  const { enrichedCount } = await enrichItemsTrendContentSourceFromRegistry(db, domain, incomingRawItems);
+  if (enrichedCount > 0) {
+    logger.info({ domain, enrichedCount }, "Auto-linked rawItems to trend_content_source from registry (URL match)");
+  }
+
+  const sourceIdsToValidate = new Set<string>();
+  if (trendContentSourceId) sourceIdsToValidate.add(trendContentSourceId);
+  for (const item of incomingRawItems) {
+    if (item.trendContentSourceId) sourceIdsToValidate.add(item.trendContentSourceId);
+  }
+  if (sourceIdsToValidate.size > 0) {
+    const rows = await db.trendContentSource.findMany({
+      where: { id: { in: [...sourceIdsToValidate] } },
+      select: { id: true, trendDomain: true },
+    });
+    if (rows.length !== sourceIdsToValidate.size) {
+      throw Object.assign(new Error("One or more trendContentSourceId values not found"), {
+        code: ERROR_CODES.NOT_FOUND,
+      });
+    }
+    for (const r of rows) {
+      if (r.trendDomain !== domain) {
+        throw Object.assign(
+          new Error(
+            `trendContentSourceId domain mismatch: source ${r.id} is "${r.trendDomain}", request domain is "${domain}"`
+          ),
+          { code: ERROR_CODES.VALIDATION_ERROR }
+        );
+      }
+    }
+  }
+
+  await ingestCrawledArticles(db, domain, incomingRawItems, {
+    trendContentSourceId: trendContentSourceId,
+  });
 
   const skipDedup = skipArticleDedup === true;
   const { kept, dropped } = await filterRawItemsForTrendDedup(db, domain, incomingRawItems, {
@@ -113,6 +149,7 @@ export async function runTrendJobFlow(input: RunTrendJobInput, ctx: TrendRunCtx)
         channel,
         rawItems: incomingRawItems,
         skipArticleDedup: skipDedup,
+        ...(trendContentSourceId ? { trendContentSourceId } : {}),
         dedup: {
           inCount: incomingRawItems.length,
           processCount: rawItemsForGraph.length,

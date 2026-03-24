@@ -38,6 +38,7 @@ export function RunTrendJobModal({ open, onClose }: RunTrendJobModalProps) {
       initialValues={{
         domain: "sports-vn",
         skipArticleDedup: false,
+        trendContentSourceId: "",
         ...DEFAULT_CHANNEL_FIELDS,
         rawItems: [{ title: "", body: "", url: "", sourceId: "" }],
       }}
@@ -46,9 +47,12 @@ export function RunTrendJobModal({ open, onClose }: RunTrendJobModalProps) {
       onFinish={async (values) =>
         guard(async () => {
           try {
+            const rssId =
+              typeof values.trendContentSourceId === "string" ? values.trendContentSourceId.trim() : "";
             const result = await api.runTrendJob({
               domain: values.domain,
               skipArticleDedup: Boolean(values.skipArticleDedup),
+              ...(rssId ? { trendContentSourceId: rssId } : {}),
               rawItems: mapTrendRawItemsForApi(values.rawItems),
               channel: {
                 id: values.channelId,
@@ -75,6 +79,12 @@ export function RunTrendJobModal({ open, onClose }: RunTrendJobModalProps) {
         label="Domain"
         rules={[{ required: true }]}
         options={[...TREND_DOMAIN_OPTIONS]}
+      />
+      <ProFormText
+        name="trendContentSourceId"
+        label="ID nguồn RSS (tuỳ chọn)"
+        tooltip="UUID từ trang Nguồn RSS — gắn bài crawl với feed đó; phải trùng domain với ô Domain bên trên."
+        fieldProps={{ placeholder: "Để trống nếu chạy tay / n8n không qua nguồn đăng ký" }}
       />
       <ProFormSwitch
         name="skipArticleDedup"

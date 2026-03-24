@@ -1,1 +1,5 @@
-export const ERROR_CODES = { CONFLICT: "CONFLICT", NOT_FOUND: "NOT_FOUND" } as const;
+export const ERROR_CODES = {
+  CONFLICT: "CONFLICT",
+  NOT_FOUND: "NOT_FOUND",
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+} as const;

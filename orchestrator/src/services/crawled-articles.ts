@@ -2,14 +2,39 @@ import type { PrismaClient } from "@prisma/client";
 import type { NormalizedItem } from "../graph/types.js";
 import { crawledArticleDedupeKey, type CrawlItemShape } from "../lib/crawled-article-key.js";
 
+export type IngestCrawledArticlesOpts = {
+  /** Bản ghi Nguồn RSS (admin) — biết bài ingest từ feed nào; null nếu trend từ n8n/thủ công. */
+  trendContentSourceId?: string | null;
+};
+
 export async function ingestCrawledArticles(
   db: PrismaClient,
   trendDomain: string,
-  items: CrawlItemShape[]
+  items: CrawlItemShape[],
+  opts?: IngestCrawledArticlesOpts
 ): Promise<void> {
+  const jobLevelSourceId = opts?.trendContentSourceId;
   for (const item of items) {
     const dedupeKey = crawledArticleDedupeKey(trendDomain, item);
     const bodyPreview = (item.body ?? "").slice(0, 4000);
+    const rowSourceId = item.trendContentSourceId ?? jobLevelSourceId;
+    const updateData: {
+      title: string;
+      bodyPreview: string | null;
+      url: string | null;
+      sourceId: string | null;
+      rawPayload: object;
+      trendContentSourceId?: string | null;
+    } = {
+      title: item.title.slice(0, 512),
+      bodyPreview: bodyPreview || null,
+      url: item.url ? item.url.slice(0, 2048) : null,
+      sourceId: item.sourceId?.slice(0, 128) ?? null,
+      rawPayload: item as object,
+    };
+    if (rowSourceId !== undefined) {
+      updateData.trendContentSourceId = rowSourceId;
+    }
     await db.crawledArticle.upsert({
       where: { dedupeKey },
       create: {
@@ -20,14 +45,9 @@ export async function ingestCrawledArticles(
         bodyPreview: bodyPreview || null,
         sourceId: item.sourceId?.slice(0, 128) ?? null,
         rawPayload: item as object,
+        trendContentSourceId: rowSourceId ?? null,
       },
-      update: {
-        title: item.title.slice(0, 512),
-        bodyPreview: bodyPreview || null,
-        url: item.url ? item.url.slice(0, 2048) : null,
-        sourceId: item.sourceId?.slice(0, 128) ?? null,
-        rawPayload: item as object,
-      },
+      update: updateData,
     });
   }
 }
