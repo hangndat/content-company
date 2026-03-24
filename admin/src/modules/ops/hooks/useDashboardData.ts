@@ -14,6 +14,7 @@ export function useDashboardData(params: {
   const [topics, setTopics] = useState<Awaited<ReturnType<typeof dashboardService.getTopics>> | null>(null);
   const [prompts, setPrompts] = useState<Awaited<ReturnType<typeof dashboardService.getPrompts>> | null>(null);
   const [experiments, setExperiments] = useState<Awaited<ReturnType<typeof dashboardService.getExperiments>> | null>(null);
+  const [channels, setChannels] = useState<Awaited<ReturnType<typeof dashboardService.getChannels>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +22,7 @@ export function useDashboardData(params: {
     setLoading(true);
     setError(null);
     try {
-      const [s, t, q, p, top, prom, exp] = await Promise.all([
+      const [s, t, q, p, top, prom, exp, ch] = await Promise.all([
         dashboardService.getSummary({
           days: params.days ?? 1,
           from: params.from,
@@ -46,6 +47,7 @@ export function useDashboardData(params: {
         }),
         dashboardService.getPrompts({ type: "writer", days: 14, limit: 20 }),
         dashboardService.getExperiments({ status: "running" }),
+        dashboardService.getChannels({ days: params.days ?? 7, limit: 20 }),
       ]);
       setSummary(s);
       setTrends(t);
@@ -54,6 +56,7 @@ export function useDashboardData(params: {
       setTopics(top);
       setPrompts(prom);
       setExperiments(exp);
+      setChannels(ch);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -73,6 +76,7 @@ export function useDashboardData(params: {
     topics,
     prompts,
     experiments,
+    channels,
     loading,
     error,
     reload: load,

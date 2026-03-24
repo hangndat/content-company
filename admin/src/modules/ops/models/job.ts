@@ -8,6 +8,15 @@ export interface RawItem {
   body?: string;
   url?: string;
   publishedAt?: string;
+  sourceId?: string;
+}
+
+export interface TrendCandidate {
+  topic: string;
+  aggregatedBody?: string;
+  sources?: string[];
+  sourceCount?: number;
+  itemRefs?: string[];
 }
 
 export interface JobStepSnapshot {
@@ -42,6 +51,7 @@ export interface JobDetailResponse {
       outline: string | null;
       draft: string | null;
       reviewNotes: string | null;
+      trendCandidates?: TrendCandidate[];
     };
   };
   input: {

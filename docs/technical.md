@@ -104,7 +104,9 @@ orchestrator/src/
 │   ├── resolver.ts          # Experiment-aware prompt resolver
 │   └── constants.ts
 ├── lib/
-│   ├── ai-client.ts         # OpenAI + Langfuse
+│   ├── ai-client.ts         # OpenAI + Langfuse observeOpenAI
+│   ├── langfuse-observability.ts  # Metrics API (admin summary)
+│   ├── langfuse.ts          # getLangfuse (optional standalone client)
 │   ├── logger.ts
 │   ├── prompt-resolver.ts   # Prompt version resolver
 │   └── topic-key.ts         # topicKey/topicSignature
@@ -139,6 +141,40 @@ admin/src/
     ├── constants/status.ts
     └── utils/
 ```
+
+### 2.4 Langfuse (LLM observability)
+
+**Luồng dữ liệu**
+
+```
+Planner / Scorer / Writer / Reviewer
+        → callAI() (orchestrator/src/lib/ai-client.ts)
+        → OpenAI SDK bọc bởi observeOpenAI (langfuse@3) khi có LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY
+        → Langfuse ingestion tại LANGFUSE_HOST
+```
+
+- **Trace**: `traceName` = `graph.{step}`; **session** = `jobId`; **metadata** = `jobId`, `step`, `traceId`.
+- **Tắt Langfuse**: bỏ trống hoặc không set public/secret key → gọi OpenAI trực tiếp (singleton client).
+- **Chi phí / token**: Langfuse nhận usage từ response OpenAI; USD cost phụ thuộc **model definitions / pricing** trong project Langfuse (Cloud hoặc self-host UI).
+
+**Orchestrator — file liên quan**
+
+| File | Vai trò |
+|------|---------|
+| `lib/ai-client.ts` | `observeOpenAI`, `flushAsync` sau mỗi `callAI` |
+| `lib/langfuse-observability.ts` | Gọi `GET /api/public/metrics` (Basic auth pk:sk) cho tóm tắt usage |
+| `api/routes/observability.ts` | `GET /v1/settings/observability?days=` → JSON an toàn cho Admin |
+| `config/env.ts` | `LANGFUSE_HOST`, `LANGFUSE_UI_PUBLIC_URL`, keys |
+
+**Admin**
+
+- `admin/src/modules/ops/components/LangfuseObservabilityCard.tsx` — gọi `api.observability({ days })`, hiển thị trên Ops Dashboard & Settings.
+
+**Self-host Docker** (repo)
+
+- `docker-compose.langfuse.yml` — project Compose tên `langfuse`, services tiền tố `langfuse-*` (tránh trùng `postgres`/`redis` với `docker-compose.yml` app).
+- `.env.langfuse` — secrets stack Langfuse; **`LANGFUSE_DATABASE_URL`** tách biến để file `.env` app không ghi đè `DATABASE_URL` khi Compose merge env.
+- **Bắt buộc** `LANGFUSE_INIT_ORG_ID` (UUID) nếu dùng các biến `LANGFUSE_INIT_USER_*` / `LANGFUSE_INIT_PROJECT_*`: nếu thiếu, container log cảnh báo và **bỏ qua toàn bộ seed user** → đăng nhập UI sẽ fail.
 
 ---
 
@@ -273,7 +309,8 @@ Base URL: `http://localhost:3000`
 
 | Method | Path | Mô tả |
 |--------|------|-------|
-| POST | `/v1/jobs/content/run` | Tạo và chạy job. Body: sourceType, rawItems, publishPolicy, channel |
+| POST | `/v1/jobs/trend/run` | Trend aggregate. Body: `domain?`, `rawItems[]`, `channel?`. Mỗi item cần map được nguồn: `url` (host known) hoặc `sourceId`. Output: `trendCandidates` |
+| POST | `/v1/jobs/content/run` | Tạo và chạy job. Body: sourceType, rawItems, publishPolicy, channel. Hoặc trendJobId + topicIndex? (lấy rawItems từ trend job) |
 | GET | `/v1/jobs` | List jobs (limit, offset, status) |
 | GET | `/v1/jobs/:jobId` | Chi tiết job |
 | GET | `/v1/jobs/:jobId/detail` | Chi tiết đầy đủ (inputs, outputs, approvals) |
@@ -297,6 +334,27 @@ Base URL: `http://localhost:3000`
   "channel": { "id": "...", "type": "blog|social|affiliate", "metadata": {} }
 }
 ```
+
+### 6.4.1 Trend job body (`POST /v1/jobs/trend/run`)
+
+```json
+{
+  "domain": "sports-vn",
+  "rawItems": [
+    {
+      "title": "...",
+      "body": "...",
+      "url": "https://...",
+      "sourceId": "optional — bắt buộc nếu không có url hoặc host không map",
+      "id": "optional",
+      "publishedAt": "optional"
+    }
+  ],
+  "channel": { "id": "blog-1", "type": "blog", "metadata": {} }
+}
+```
+
+Profile `sports-vn` gồm báo VN + mạng xã hội phổ biến (x/youtube/facebook/tiktok/…); `generic` chỉ dùng segment đầu hostname.
 
 ### 6.5 Prompts
 
@@ -340,6 +398,9 @@ Base URL: `http://localhost:3000`
 | GET | `/v1/dashboard/channels` | Channel performance |
 | GET | `/v1/dashboard/prompts` | Prompt performance |
 | GET | `/v1/dashboard/experiments` | Experiment list |
+| GET | `/v1/settings/observability` | Langfuse: `enabled`, `uiUrl`, `days`, `usage` (best-effort metrics); không lộ secret key |
+
+Query `observability`: `days` (1–90, default 7). Cần Bearer `API_KEY` nếu orchestrator bật `API_KEY`.
 
 Chi tiết: [docs/api.md](api.md).
 
@@ -359,7 +420,9 @@ Chi tiết: [docs/api.md](api.md).
 | OPENAI_API_KEY | OpenAI key | - |
 | OPENAI_MODEL_PRIMARY | Model chính | gpt-4o-mini |
 | OPENAI_MODEL_FALLBACK | Fallback model | gpt-3.5-turbo |
-| LANGFUSE_* | Langfuse config | optional |
+| LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY | Bật trace OpenAI qua Langfuse SDK (`observeOpenAI`) | optional |
+| LANGFUSE_HOST | Base URL Langfuse **API** (ingestion/SDK), **không** dùng tên `LANGFUSE_BASE_URL` trong code | `https://cloud.langfuse.com` |
+| LANGFUSE_UI_PUBLIC_URL | URL UI mở trong browser từ Admin (khi `LANGFUSE_HOST` chỉ reachable nội bộ, ví dụ Docker network) | = `LANGFUSE_HOST` |
 | USE_QUEUE | 1=true: dùng BullMQ | 0 |
 
 ### 7.2 Admin (admin/.env)
@@ -377,6 +440,30 @@ Chi tiết: [docs/api.md](api.md).
 docker compose up -d
 ```
 
+**Langfuse** (tách file, project `langfuse`): `npm run langfuse:up` hoặc `docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse up -d` — UI **host `3030`**, Postgres `127.0.0.1:5434`, Redis `127.0.0.1:6381`, MinIO `9090`, ClickHouse `18123`/`19000`. Không merge tên service `postgres`/`redis` với stack app; dùng `LANGFUSE_DATABASE_URL` trong `.env.langfuse` để Compose không lấy nhầm `DATABASE_URL` từ `.env` gốc.
+
+- **`npm run langfuse:down`**: dừng stack, **giữ** volume.
+- **`npm run langfuse:reset`**: `down -v` — xóa toàn bộ data Langfuse (Postgres/ClickHouse/MinIO/Redis của project này).
+
+Postgres & ClickHouse trong compose Langfuse dùng **TZ=UTC** theo khuyến nghị Langfuse.
+
+### 7.4 File `.env.langfuse` (chỉ cho stack Docker Langfuse)
+
+| Biến | Mô tả |
+|------|--------|
+| `LANGFUSE_NEXTAUTH_URL` | URL browser tới UI, ví dụ `http://localhost:3030` |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` — không dùng chuỗi ngắn |
+| `SALT` | `openssl rand -base64 32` |
+| `ENCRYPTION_KEY` | `openssl rand -hex 32` (64 ký tự hex) |
+| `LANGFUSE_DATABASE_URL` | Connection string Postgres **container** `langfuse-postgres` |
+| `LANGFUSE_INIT_ORG_ID` | **UUID** — bắt buộc nếu muốn seed user/project qua `LANGFUSE_INIT_*` |
+| `LANGFUSE_INIT_PROJECT_ID` | UUID project (khuyến nghị set cùng org seed) |
+| `LANGFUSE_INIT_USER_EMAIL` / `PASSWORD` / `USER_NAME` | User đăng nhập lần đầu (chỉ khi DB Langfuse trống / sau reset volume) |
+
+Sao chép từ `.env.langfuse.example` và thay mọi `CHANGEME`.
+
+Admin đọc trạng thái Langfuse qua `GET /v1/settings/observability` (Bearer `API_KEY` nếu có); orchestrator gọi Langfuse metrics API server-side, response **không** chứa secret.
+
 ---
 
 ## 8. Scripts & Tooling
@@ -390,6 +477,9 @@ docker compose up -d
 | `npm run dev:full` | Cả orchestrator + admin |
 | `npm run dev:api` | Orchestrator (alias) |
 | `npm run dev:worker` | BullMQ worker (USE_QUEUE=1) |
+| `npm run langfuse:up` | Langfuse Docker stack (`--env-file .env.langfuse`) |
+| `npm run langfuse:down` | Dừng Langfuse, giữ volume |
+| `npm run langfuse:reset` | `down -v` Langfuse — xóa data |
 
 ### 8.2 Build & Run
 
@@ -433,9 +523,11 @@ docker compose up -d
 
 | Workflow | Mô tả | File |
 |----------|-------|------|
-| **A - Ingest & Run** | RSS/Webhook → Orchestrator → Acquire Slot → Publish/Notify | A-ingest-run.json |
-| **B - Manual Approval** | Webhook approve/reject → API → Publish | B-manual-approval.json |
+| **A - Trend Ingest** | Multi-RSS → trend job → content jobs (draft) | A-trend-ingest.json |
+| **B - Manual Approval** | Webhook approve/reject → API | B-manual-approval.json |
 | **C - Publish Tracking** | Callback sau publish | C-publish-tracking.json |
+| **D - Publish to Webhook** | Acquire slot → POST ngoài (CMS/hook) → publish-callback | D-publish-to-webhook.json |
+| **D - Daily aggregates** | Schedule/Manual → aggregate-metrics → aggregate-experiments | D-daily-aggregates.json |
 
 ### 9.2 Cấu hình n8n
 

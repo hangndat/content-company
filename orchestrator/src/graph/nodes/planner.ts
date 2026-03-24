@@ -30,7 +30,11 @@ export async function planner(
       },
     }
   );
-  const response = await callAI(prompt, ctx);
+  const response = await callAI(prompt, ctx, {
+    step: "planner",
+    jobId: state.jobId,
+    traceId: state.traceId,
+  });
 
   const delta: Partial<GraphState> = {
     outline: response,

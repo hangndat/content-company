@@ -27,7 +27,11 @@ export async function reviewer(
       },
     }
   );
-  const response = await callAI(prompt, ctx);
+  const response = await callAI(prompt, ctx, {
+    step: "reviewer",
+    jobId: state.jobId,
+    traceId: state.traceId,
+  });
 
   const base = {
     promptVersions: { reviewer: version },

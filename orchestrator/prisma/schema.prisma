@@ -52,6 +52,7 @@ model JobOutput {
   finalDecisionPayload   Json?    @map("final_decision_payload")
   promptVersions         Json?    @map("prompt_versions")
   experimentAssignments  Json?    @map("experiment_assignments")
+  trendCandidates        Json?    @map("trend_candidates")
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)

@@ -31,7 +31,11 @@ export async function writer(
       },
     }
   );
-  const draft = await callAI(prompt, ctx);
+  const draft = await callAI(prompt, ctx, {
+    step: "writer",
+    jobId: state.jobId,
+    traceId: state.traceId,
+  });
 
   return {
     draft,

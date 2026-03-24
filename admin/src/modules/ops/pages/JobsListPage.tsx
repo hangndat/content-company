@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, Table, Alert, Select } from "antd";
+import { Card, Table, Alert, Select, Tag } from "antd";
 import { jobService } from "../services/jobService";
 import type { JobListItem } from "../models/job";
 
@@ -61,6 +61,8 @@ export default function JobsListPage() {
       title: "Source",
       dataIndex: "sourceType",
       key: "sourceType",
+      render: (t: string) =>
+        t === "trend_aggregate" ? <Tag color="purple">trend</Tag> : <Tag>{t}</Tag>,
     },
     {
       title: "Created",

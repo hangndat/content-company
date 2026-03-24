@@ -8,10 +8,12 @@ import { SummaryStatCard } from "../components/SummaryStatCard";
 import { JobTrendChart } from "../components/JobTrendChart";
 import { QueueOverviewCard } from "../components/QueueOverviewCard";
 import { PublishOverviewCard } from "../components/PublishOverviewCard";
+import { ChannelPerformanceCard } from "../components/ChannelPerformanceCard";
 import { TopicPerformanceTable } from "../components/TopicPerformanceTable";
 import { PromptPerformanceTable } from "../components/PromptPerformanceTable";
 import { ExperimentTable } from "../components/ExperimentTable";
 import { SemanticsNote } from "../components/SemanticsNote";
+import { LangfuseObservabilityCard } from "../components/LangfuseObservabilityCard";
 import { formatDurationMs } from "../../../shared/utils/formatters";
 
 export default function OpsDashboardPage() {
@@ -25,6 +27,7 @@ export default function OpsDashboardPage() {
     topics,
     prompts,
     experiments,
+    channels,
     loading,
     error,
     reload,
@@ -73,6 +76,8 @@ export default function OpsDashboardPage() {
       {summary?.semantics && (
         <SemanticsNote semantics={summary.semantics} variant="text" />
       )}
+
+      <LangfuseObservabilityCard days={apiParams.days ?? 7} />
 
       {/* Section 1: Summary cards */}
       <Row gutter={[16, 16]}>
@@ -155,6 +160,9 @@ export default function OpsDashboardPage() {
           <PublishOverviewCard data={publish} loading={loading} />
         </Col>
       </Row>
+
+      {/* Section 3b: Channel Performance */}
+      <ChannelPerformanceCard data={channels ?? null} loading={loading} />
 
       {/* Section 4 & 5: Topics & Prompts */}
       <Row gutter={16}>

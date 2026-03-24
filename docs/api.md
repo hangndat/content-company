@@ -29,6 +29,16 @@ Create and run a content job.
 **Response 201:** Idempotent duplicate (existing job)
 **Response 409:** Conflict (job running or duplicate source)
 
+### POST /v1/jobs/trend/run
+Run a trend aggregate job (`sourceType: trend_aggregate`). Response shape: `{ jobId, traceId, status, createdAt, completedAt }` (sync; job completes before response).
+
+**Body:**
+- `domain` (optional, default `sports-vn`): profile in orchestrator `trends/domain-profiles.ts` (`generic` = map source by hostname only).
+- `rawItems[]`: each item needs `title`, `body` (min length enforced in normalize). **Resolvable source:** either `url` (HTTP(S) URL whose host maps for the domain) **or** explicit `sourceId` (required when there is no URL or host is unknown). Validation returns 400 with field hints if any item resolves to `unknown`.
+- `channel` (optional): same shape as content jobs.
+
+**GET** `/v1/jobs/:jobId` or `/detail`: completed trend jobs expose `output.trendCandidates`.
+
 ### GET /v1/jobs/:jobId
 Get job status and output.
 
@@ -84,3 +94,19 @@ Run experiment metrics aggregation. Body: `{ "days"?: 7, "experimentIds"?: strin
 - `POST /v1/experiments/:id/complete` - status → completed
 - `POST /v1/experiments/:id/promote` - Promote winning arm to active prompt. Body: `{ "armId"?: string }`
 - `GET /v1/experiments/:id/report` - Metrics by arm; `avgReviewScoreScale: "0..1"`; `controlArm` used for winner guards. Winner suggestion: smoothed CTR, guards (min 10 samples, approveRate drop ≤5%, avgReviewScore drop ≤0.03 vs control). Returns `cohortBy: "job_creation_date"` and note on metric-date vs creation-date.
+
+### Dashboard (`GET /v1/dashboard/*`)
+Tóm tắt Ops: `summary`, `job-trends`, `queue`, `publish`, `topics`, `channels`, `prompts`, `experiments`, v.v. Xem bảng trong [README](../README.md) hoặc [technical.md](technical.md#68-dashboard-api).
+
+### GET /v1/settings/observability
+Trạng thái Langfuse cho Admin (không trả secret).
+
+**Query:** `days` (1–90, default 7) — cửa sổ thời gian cho metrics.
+
+**Response (ví dụ):** `{ "enabled": true, "uiUrl": "http://localhost:3030", "days": 7, "usage": { "totalTokens": number|null, "totalCostUsd": number|null, "observationCount": number|null } | null }`
+
+- `enabled`: có đủ `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY`.
+- `uiUrl`: `LANGFUSE_UI_PUBLIC_URL` hoặc `LANGFUSE_HOST`.
+- `usage`: best-effort từ Langfuse `GET /api/public/metrics`; có thể `null` nếu API lỗi hoặc chưa có dữ liệu.
+
+Cần Bearer `API_KEY` nếu orchestrator bật `API_KEY`. `/health` và `/ready` không áp dụng route này.

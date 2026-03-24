@@ -11,7 +11,10 @@ const envSchema = z.object({
   OPENAI_MODEL_FALLBACK: z.string().default("gpt-3.5-turbo"),
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
+  /** Ingestion / SDK base URL (reachable from orchestrator process). */
   LANGFUSE_HOST: z.string().url().optional().default("https://cloud.langfuse.com"),
+  /** Browser URL for Langfuse UI (admin deep link). Defaults to LANGFUSE_HOST when unset. */
+  LANGFUSE_UI_PUBLIC_URL: z.string().url().optional(),
   USE_QUEUE: z
     .string()
     .optional()

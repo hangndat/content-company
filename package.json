@@ -22,7 +22,12 @@
     "aggregate:experiments": "npx tsx orchestrator/src/scripts/aggregate-experiment-metrics.ts",
     "trigger:job": "npx tsx scripts/trigger-job.ts",
     "inspect:job": "npx tsx scripts/inspect-job.ts",
-    "n8n:import": "docker compose exec n8n n8n import:workflow --separate --input=/workflows",
+    "n8n:import": "npx tsx scripts/n8n-clean-import.ts",
+    "verify:local": "npx tsx scripts/verify-local-stack.ts",
+    "verify:local:api": "CHECK_ORCHESTRATOR=1 npx tsx scripts/verify-local-stack.ts",
+    "langfuse:up": "docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse up -d",
+    "langfuse:down": "docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse down",
+    "langfuse:reset": "docker compose -f docker-compose.langfuse.yml --env-file .env.langfuse down -v",
     "test": "vitest run",
     "test:watch": "vitest"
   },

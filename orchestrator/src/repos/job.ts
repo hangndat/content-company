@@ -24,6 +24,14 @@ export type UpdateJobStatusInput = {
   completedAt?: Date;
 };
 
+export type TrendCandidate = {
+  topic: string;
+  aggregatedBody: string;
+  sources: string[];
+  sourceCount: number;
+  itemRefs: string[];
+};
+
 export type CreateJobOutputInput = {
   jobId: string;
   outline?: string;
@@ -32,6 +40,7 @@ export type CreateJobOutputInput = {
   finalDecisionPayload?: unknown;
   promptVersions?: Record<string, number>;
   experimentAssignments?: Record<string, import("../experiments/assignment-meta.js").ExperimentAssignmentMeta>;
+  trendCandidates?: TrendCandidate[];
 };
 
 export function createJobRepo(db: PrismaClient) {
@@ -111,6 +120,7 @@ export function createJobRepo(db: PrismaClient) {
           finalDecisionPayload: (input.finalDecisionPayload as object) ?? undefined,
           promptVersions: (input.promptVersions as object) ?? undefined,
           experimentAssignments: (input.experimentAssignments as object) ?? undefined,
+          trendCandidates: (input.trendCandidates as object[]) ?? undefined,
         },
         update: {
           outline: input.outline,
@@ -119,6 +129,7 @@ export function createJobRepo(db: PrismaClient) {
           finalDecisionPayload: (input.finalDecisionPayload as object) ?? undefined,
           promptVersions: (input.promptVersions as object) ?? undefined,
           experimentAssignments: (input.experimentAssignments as object) ?? undefined,
+          ...(input.trendCandidates !== undefined && { trendCandidates: input.trendCandidates as object[] }),
         },
       });
     },

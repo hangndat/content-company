@@ -1,0 +1,86 @@
+{
+  "name": "D - Daily aggregates",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "d-agg-schedule",
+      "name": "Daily 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "notes": "TZ from n8n (docker-compose: Asia/Ho_Chi_Minh). Activate workflow in n8n for scheduling. Or use Manual below for testing."
+    },
+    {
+      "parameters": {},
+      "id": "d-agg-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/v1/admin/aggregate-metrics",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env['ORCHESTRATOR_API_KEY'] }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ days: 7 }) }}"
+      },
+      "id": "d-agg-metrics",
+      "name": "POST aggregate-metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/v1/admin/aggregate-experiments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env['ORCHESTRATOR_API_KEY'] }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ days: 7 }) }}"
+      },
+      "id": "d-agg-exp",
+      "name": "POST aggregate-experiments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 100]
+    }
+  ],
+  "connections": {
+    "Daily 02:00": {
+      "main": [[{ "node": "POST aggregate-metrics", "type": "main", "index": 0 }]]
+    },
+    "Manual Trigger": {
+      "main": [[{ "node": "POST aggregate-metrics", "type": "main", "index": 0 }]]
+    },
+    "POST aggregate-metrics": {
+      "main": [[{ "node": "POST aggregate-experiments", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

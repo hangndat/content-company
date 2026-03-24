@@ -39,7 +39,11 @@ export async function scorer(
       },
     }
   );
-  const response = await callAI(prompt, ctx);
+  const response = await callAI(prompt, ctx, {
+    step: "scorer",
+    jobId: state.jobId,
+    traceId: state.traceId,
+  });
 
   try {
     const parsed = JSON.parse(response) as { topicScore?: number };

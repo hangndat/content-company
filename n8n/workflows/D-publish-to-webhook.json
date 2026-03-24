@@ -1,0 +1,195 @@
+{
+  "name": "D - Publish to Webhook",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d-pub-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "notes": "Set jobId in the next node. Job must be APPROVED with draft. Requires PUBLISH_WEBHOOK_URL in n8n env (see docker-compose / n8n README)."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "jobId",
+              "value": "REPLACE-WITH-JOB-UUID",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "channelId",
+              "value": "blog-1",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d-pub-set",
+      "name": "Set jobId and channel",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:3000/v1/jobs/{{ $json.jobId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env['ORCHESTRATOR_API_KEY'] }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d-pub-get",
+      "name": "Get Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "APPROVED",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d-pub-if-approved",
+      "name": "Is APPROVED?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:3000/v1/jobs/{{ $('Set jobId and channel').item.json.jobId }}/acquire-publish-slot",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env['ORCHESTRATOR_API_KEY'] }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channelId: $('Set jobId and channel').item.json.channelId }) }}"
+      },
+      "id": "d-pub-acquire",
+      "name": "Acquire publish slot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, -120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.canPublish }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d-pub-if-slot",
+      "name": "Slot granted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.PUBLISH_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  jobId: $('Get Job').item.json.jobId,\n  channelId: $('Set jobId and channel').item.json.channelId,\n  outline: $('Get Job').item.json.output?.outline ?? null,\n  draft: $('Get Job').item.json.output?.draft ?? '',\n  contentHash: $('Acquire publish slot').item.json.contentHash ?? null\n}) }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "d-pub-cms",
+      "name": "POST CMS or receiver",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, -200],
+      "notes": "Target must accept JSON. Set PUBLISH_WEBHOOK_URL (e.g. Zapier, your CMS, or a test server)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:3000/v1/jobs/{{ $('Get Job').item.json.jobId }}/publish-callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env['ORCHESTRATOR_API_KEY'] }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  channelId: $('Set jobId and channel').item.json.channelId,\n  publishRef: String($json.id ?? $json.slug ?? $json.postId ?? $json.reference ?? 'webhook'),\n  status: 'published'\n}) }}"
+      },
+      "id": "d-pub-callback",
+      "name": "Publish callback OK",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, -200]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Set jobId and channel", "type": "main", "index": 0 }]]
+    },
+    "Set jobId and channel": {
+      "main": [[{ "node": "Get Job", "type": "main", "index": 0 }]]
+    },
+    "Get Job": {
+      "main": [[{ "node": "Is APPROVED?", "type": "main", "index": 0 }]]
+    },
+    "Is APPROVED?": {
+      "main": [
+        [{ "node": "Acquire publish slot", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Acquire publish slot": {
+      "main": [[{ "node": "Slot granted?", "type": "main", "index": 0 }]]
+    },
+    "Slot granted?": {
+      "main": [
+        [{ "node": "POST CMS or receiver", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "POST CMS or receiver": {
+      "main": [[{ "node": "Publish callback OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

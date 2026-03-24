@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import {
   runJobBodySchema,
+  runTrendJobBodySchema,
   replayBodySchema,
 } from "../schemas.js";
 import { getTraceContext } from "../middleware/trace.js";
@@ -13,6 +14,37 @@ export async function registerJobRoutes(
   deps: { jobService: JobService }
 ) {
   const { jobService } = deps;
+
+  app.post<{
+    Body: unknown;
+  }>("/v1/jobs/trend/run", async (req, reply) => {
+    const ctx = getTraceContext(req);
+    const parsed = runTrendJobBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send(
+        formatErrorResponse(ERROR_CODES.VALIDATION_ERROR, "Invalid request body", parsed.error.flatten())
+      );
+    }
+    const body = parsed.data;
+    const jobId = (req.headers["x-job-id"] as string) || body.jobId || randomUUID();
+    const traceId = ctx.traceId;
+    const idempotencyKey = ctx.idempotencyKey;
+
+    const result = await jobService.runTrendJob({
+      jobId,
+      traceId,
+      idempotencyKey,
+      ...body,
+    });
+
+    return reply.status(200).send({
+      jobId: result.jobId,
+      traceId: result.traceId,
+      status: result.status,
+      createdAt: result.createdAt,
+      completedAt: result.completedAt,
+    });
+  });
 
   app.post<{
     Body: unknown;
@@ -91,6 +123,7 @@ export async function registerJobRoutes(
             outline: job.outputs.outline,
             draft: job.outputs.draft,
             reviewNotes: job.outputs.reviewNotes,
+            trendCandidates: (job.outputs as { trendCandidates?: unknown }).trendCandidates ?? undefined,
           }
         : undefined,
     };
@@ -125,6 +158,7 @@ export async function registerJobRoutes(
               outline: detail.job.outputs.outline,
               draft: detail.job.outputs.draft,
               reviewNotes: detail.job.outputs.reviewNotes,
+              trendCandidates: (detail.job.outputs as { trendCandidates?: unknown }).trendCandidates ?? undefined,
             }
           : undefined,
       },

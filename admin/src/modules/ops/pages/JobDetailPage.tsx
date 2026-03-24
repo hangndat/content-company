@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Button, Card, Alert, Spin, Space, Typography, Modal } from "antd";
+import { Button, Card, Alert, Spin, Space, Typography, Modal, Table, Tag } from "antd";
+import type { TrendCandidate } from "../models/job";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useJobDetail } from "../hooks/useJobDetail";
 import { JobStepsTimeline } from "../components/JobStepsTimeline";
@@ -64,6 +65,8 @@ export default function JobDetailPage() {
   const { job } = detail;
   const isReviewRequired = job.decision === "REVIEW_REQUIRED";
   const isCompleted = job.status === "completed";
+  const isTrendJob = job.sourceType === "trend_aggregate";
+  const trendCandidates = (job.output?.trendCandidates ?? []) as TrendCandidate[];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -100,18 +103,22 @@ export default function JobDetailPage() {
             {job.decision ?? "—"}
           </Text>
         </p>
-        <p>
-          <strong>Topic Score:</strong>{" "}
-          {job.scores?.topicScore != null
-            ? Number(job.scores.topicScore).toFixed(4)
-            : "—"}
-        </p>
-        <p>
-          <strong>Review Score:</strong>{" "}
-          {job.scores?.reviewScore != null
-            ? Number(job.scores.reviewScore).toFixed(4)
-            : "—"}
-        </p>
+        {!isTrendJob && (
+          <>
+            <p>
+              <strong>Topic Score:</strong>{" "}
+              {job.scores?.topicScore != null
+                ? Number(job.scores.topicScore).toFixed(4)
+                : "—"}
+            </p>
+            <p>
+              <strong>Review Score:</strong>{" "}
+              {job.scores?.reviewScore != null
+                ? Number(job.scores.reviewScore).toFixed(4)
+                : "—"}
+            </p>
+          </>
+        )}
         <p>
           <strong>Source Type:</strong> {job.sourceType}
         </p>
@@ -141,6 +148,59 @@ export default function JobDetailPage() {
           )}
         </Space>
       </Card>
+
+      {isTrendJob && (
+        <Card title="Trend candidates">
+          {trendCandidates.length === 0 ? (
+            <Typography.Text type="secondary">No candidates (or job not completed).</Typography.Text>
+          ) : (
+            <Table<TrendCandidate>
+              size="small"
+              pagination={false}
+              rowKey={(_, i) => String(i)}
+              dataSource={trendCandidates}
+              columns={[
+                { title: "Topic", dataIndex: "topic", key: "topic", ellipsis: true },
+                {
+                  title: "Sources",
+                  key: "sources",
+                  render: (_, row) => (
+                    <span>
+                      {(row.sources ?? []).map((s) => (
+                        <Tag key={s}>{s}</Tag>
+                      ))}
+                    </span>
+                  ),
+                },
+                { title: "Count", dataIndex: "sourceCount", key: "sourceCount", width: 72 },
+                {
+                  title: "Snippet",
+                  key: "body",
+                  ellipsis: true,
+                  render: (_, row) => (row.aggregatedBody ?? "").slice(0, 160),
+                },
+                {
+                  title: "Links",
+                  key: "refs",
+                  width: 80,
+                  render: (_, row) =>
+                    (row.itemRefs ?? []).length ? (
+                      <a
+                        href={row.itemRefs![0]}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {row.itemRefs!.length} URL
+                      </a>
+                    ) : (
+                      "—"
+                    ),
+                },
+              ]}
+            />
+          )}
+        </Card>
+      )}
 
       {/* Pipeline steps */}
       <Card title="Pipeline Steps">

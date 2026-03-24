@@ -4,6 +4,8 @@ export type GraphState = {
   jobId: string;
   traceId: string;
   sourceType: string;
+  /** Trend job: domain profile (vd sports-vn). Content graph bỏ qua. */
+  trendDomain?: string;
   topicHint?: string;
   rawItems: RunJobBody["rawItems"];
   publishPolicy: string;
@@ -27,6 +29,8 @@ export type NormalizedItem = {
   body: string;
   url?: string;
   publishedAt?: string;
+  /** Ghi đè map hostname khi RSS đã có sourceId */
+  sourceId?: string;
 };
 
 export type GraphContext = {

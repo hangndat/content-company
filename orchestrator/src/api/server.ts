@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import cors from "@fastify/cors";
 import { registerHealthRoutes } from "./routes/health.js";
@@ -12,6 +12,7 @@ import { registerMetricsRoutes } from "./routes/metrics.js";
 import { registerAggregateMetricsRoute } from "./routes/aggregate-metrics.js";
 import { registerExperimentRoutes } from "./routes/experiments.js";
 import { registerDashboardRoutes } from "./routes/dashboard.js";
+import { registerPublishedRoutes } from "./routes/published.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
 import { registerErrorHandler } from "./middleware/error.js";
 import type { JobService } from "../services/job.js";
@@ -19,6 +20,8 @@ import type { JobQueueService } from "../services/job-queue.js";
 import type { Redis } from "ioredis";
 import type { PrismaClient } from "@prisma/client";
 import type { Logger } from "pino";
+import type { Env } from "../config/env.js";
+import { registerObservabilityRoutes } from "./routes/observability.js";
 
 export type ServerDeps = {
   redis: Redis;
@@ -27,12 +30,14 @@ export type ServerDeps = {
   jobQueue?: JobQueueService;
   logger: Logger;
   apiKey?: string;
+  env: Env;
 };
 
 export async function createServer(deps: ServerDeps) {
   const app = Fastify({
     loggerInstance: deps.logger.child({ module: "http" }),
-  });
+    bodyLimit: 10 * 1024 * 1024, // 10MB for trend job with many RSS items
+  }) as unknown as FastifyInstance;
 
   await app.register(cors, { origin: true });
 
@@ -57,6 +62,8 @@ export async function createServer(deps: ServerDeps) {
   await registerAggregateMetricsRoute(app, { db: deps.db, logger: deps.logger });
   await registerExperimentRoutes(app, { db: deps.db });
   await registerDashboardRoutes(app, { db: deps.db, jobQueue: deps.jobQueue });
+  await registerPublishedRoutes(app, { db: deps.db });
+  await registerObservabilityRoutes(app, deps.env);
 
   return app;
 }

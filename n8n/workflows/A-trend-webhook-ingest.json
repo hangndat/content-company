@@ -1,0 +1,108 @@
+{
+  "name": "A - Trend Webhook Ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trend-sports-ingest",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trend-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "parameters": {
+        "jsCode": "const root = $input.first().json;\nconst b = root.body ?? root;\nconst items = Array.isArray(b.rawItems) ? b.rawItems : (Array.isArray(b.items) ? b.items : []);\nconst defaultSourceId = (b.defaultSourceId || 'webhook-ingest').trim();\nconst domain = (b.domain || 'sports-vn').trim();\nconst MAX_BODY = 1200;\nconst rawItems = items.map((it, i) => {\n  const body = String(it.body || '').trim();\n  return {\n    id: it.id || `wh-${i}`,\n    title: String(it.title || '').trim(),\n    body: body.length > MAX_BODY ? body.slice(0, MAX_BODY) : body,\n    url: it.url || undefined,\n    sourceId: (it.sourceId && String(it.sourceId).trim()) || defaultSourceId,\n    publishedAt: it.publishedAt || undefined\n  };\n}).filter(x => x.title && x.body && x.body.length >= 50);\nif (rawItems.length === 0) {\n  return [{ json: { skip: true, rawItems: [], _error: 'No valid items (need title + body>=50)' } }];\n}\nreturn [{ json: { rawItems, channel: b.channel || { id: 'blog-1', type: 'blog', metadata: {} }, domain, skip: false } }];"
+      },
+      "id": "code-map-webhook",
+      "name": "Map to rawItems",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-skip-wh",
+      "name": "Skip if empty?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/v1/jobs/trend/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env['ORCHESTRATOR_API_KEY'] }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $json.domain, rawItems: $json.rawItems, channel: $json.channel }) }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "http-trend-wh",
+      "name": "Call Trend API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-empty",
+      "name": "Respond skip",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 220]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Map to rawItems", "type": "main", "index": 0 }]] },
+    "Map to rawItems": { "main": [[{ "node": "Skip if empty?", "type": "main", "index": 0 }]] },
+    "Skip if empty?": {
+      "main": [
+        [{ "node": "Respond skip", "type": "main", "index": 0 }],
+        [{ "node": "Call Trend API", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call Trend API": { "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

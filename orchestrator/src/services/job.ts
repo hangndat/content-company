@@ -8,7 +8,9 @@ import { createLock } from "../redis/lock.js";
 import { createIdempotency } from "../redis/idempotency.js";
 import { createDedupe } from "../redis/dedupe.js";
 import { runGraph } from "../graph/runner.js";
-import type { RunJobBody } from "../api/schemas.js";
+import { runTrendGraph } from "../graph/trend-runner.js";
+import type { RunJobBody, RunTrendJobBody } from "../api/schemas.js";
+import { DEFAULT_TREND_DOMAIN } from "../trends/domain-profiles.js";
 import { DECISION, JOB_STATUS, REDIS_TTL } from "../config/constants.js";
 import type { JobQueueService } from "./job-queue.js";
 
@@ -55,8 +57,15 @@ export type JobListItem = {
   completedAt: Date | null;
 };
 
+export type RunTrendJobInput = RunTrendJobBody & {
+  jobId: string;
+  traceId: string;
+  idempotencyKey?: string;
+};
+
 export interface JobService {
   runJob(input: RunJobInput): Promise<RunJobResult>;
+  runTrendJob(input: RunTrendJobInput): Promise<RunJobResult>;
   getJob(jobId: string): Promise<GetJobResult | null>;
   getJobDetail(jobId: string): Promise<JobDetailResult | null>;
   listJobs(opts?: { limit?: number; offset?: number; status?: string }): Promise<{ items: JobListItem[] }>;
@@ -103,11 +112,55 @@ export function createJobService(deps: JobServiceDeps): JobService {
   const dedupe = createDedupe(redis, REDIS_TTL.SOURCE_DEDUPE);
   const useQueue = env.USE_QUEUE && jobQueue;
 
+  async function resolveRawItemsFromTrendJob(
+    trendJobId: string,
+    topicIndex?: number
+  ): Promise<RunJobBody["rawItems"]> {
+    const trendJob = await jobRepo.findById(trendJobId);
+    if (!trendJob?.outputs?.trendCandidates) {
+      throw Object.assign(new Error("Trend job not found or has no trendCandidates"), {
+        code: ERROR_CODES.NOT_FOUND,
+      });
+    }
+    const candidates = trendJob.outputs.trendCandidates as Array<{
+      topic: string;
+      aggregatedBody: string;
+      itemRefs?: string[];
+    }>;
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      throw Object.assign(new Error("Trend job has no trendCandidates"), {
+        code: ERROR_CODES.NOT_FOUND,
+      });
+    }
+    if (topicIndex != null) {
+      const idx = Math.min(topicIndex, candidates.length - 1);
+      const c = candidates[idx]!;
+      return [{ title: c.topic, body: c.aggregatedBody, url: c.itemRefs?.[0] }];
+    }
+    return candidates.map((c) => ({
+      title: c.topic,
+      body: c.aggregatedBody,
+      url: c.itemRefs?.[0],
+    }));
+  }
+
   return {
     async runJob(input): Promise<RunJobResult> {
       const { jobId, traceId, idempotencyKey, ...body } = input;
 
-      const sourceHash = dedupe.hash(body.rawItems);
+      let resolvedBody = body;
+      if (body.trendJobId) {
+        const rawItems = await resolveRawItemsFromTrendJob(body.trendJobId, body.topicIndex);
+        resolvedBody = {
+          ...body,
+          rawItems,
+          sourceType: "trend" as const,
+        };
+      }
+      const rawItems = resolvedBody.rawItems ?? [];
+      const sourceHash = body.trendJobId
+        ? `trend-${body.trendJobId}-${body.topicIndex ?? "all"}`
+        : dedupe.hash(rawItems);
       if (await dedupe.isDuplicate(sourceHash)) {
         logger.info({ sourceHash }, "Duplicate source, skipping");
         throw Object.assign(new Error("Source already processed recently"), {
@@ -164,10 +217,10 @@ export function createJobService(deps: JobServiceDeps): JobService {
         : await jobRepo.create({
             id: finalJobId,
             traceId: finalTraceId,
-            sourceType: body.sourceType,
+            sourceType: resolvedBody.sourceType,
             idempotencyKey,
-            rawPayload: { ...body },
-            normalizedPayload: { rawItems: body.rawItems, channel: body.channel },
+            rawPayload: { ...resolvedBody },
+            normalizedPayload: { rawItems: resolvedBody.rawItems, channel: resolvedBody.channel },
           });
 
       if (!job) throw new Error("Job not found or creation failed");
@@ -187,7 +240,7 @@ export function createJobService(deps: JobServiceDeps): JobService {
         await jobQueue!.enqueue({
           jobId: job.id,
           traceId: job.traceId,
-          body,
+          body: resolvedBody,
         });
         await dedupe.markProcessed(sourceHash);
         return {
@@ -214,7 +267,7 @@ export function createJobService(deps: JobServiceDeps): JobService {
           {
             jobId: job.id,
             traceId: job.traceId,
-            ...body,
+            ...resolvedBody,
           },
           { db, redis, logger, env }
         );
@@ -228,6 +281,61 @@ export function createJobService(deps: JobServiceDeps): JobService {
         traceId: updated!.traceId,
         status: updated!.status,
         decision: updated!.decision ?? undefined,
+        createdAt: updated!.createdAt,
+        completedAt: updated!.completedAt ?? undefined,
+        duplicate: false,
+      };
+    },
+
+    async runTrendJob(input: RunTrendJobInput): Promise<RunJobResult> {
+      const { jobId, traceId, idempotencyKey, ...body } = input;
+      const finalJobId = jobId;
+      const finalTraceId = traceId;
+
+      const job = await jobRepo.create({
+        id: finalJobId,
+        traceId: finalTraceId,
+        sourceType: "trend_aggregate",
+        idempotencyKey,
+        rawPayload: { ...body },
+        normalizedPayload: {
+          rawItems: body.rawItems,
+          channel: body.channel,
+          domain: body.domain,
+        },
+      });
+
+      if (idempotencyKey) {
+        await idempotency.set(idempotencyKey, job.id);
+      }
+
+      const acquired = await lock.acquire(job.id, traceId);
+      if (!acquired) {
+        throw Object.assign(new Error("Job is already running"), {
+          code: ERROR_CODES.CONFLICT,
+        });
+      }
+
+      await jobRepo.setProcessing(job.id);
+
+      try {
+        await runTrendGraph(
+          {
+            jobId: job.id,
+            traceId: job.traceId,
+            ...body,
+          },
+          { db, redis, logger, env }
+        );
+      } finally {
+        await lock.release(job.id);
+      }
+
+      const updated = await jobRepo.findById(job.id);
+      return {
+        jobId: updated!.id,
+        traceId: updated!.traceId,
+        status: updated!.status,
         createdAt: updated!.createdAt,
         completedAt: updated!.completedAt ?? undefined,
         duplicate: false,
@@ -337,24 +445,40 @@ export function createJobService(deps: JobServiceDeps): JobService {
         const norm = job.inputs?.normalizedPayload as {
           rawItems?: RunJobBody["rawItems"];
           channel?: RunJobBody["channel"];
+          domain?: string;
         } | undefined;
         const rawItems = norm?.rawItems ?? [];
         const channel = norm?.channel ?? { id: "unknown", type: "blog" as const, metadata: {} };
-        const body: RunJobBody = {
-          sourceType: job.sourceType as "rss" | "webhook" | "manual" | "api",
-          rawItems,
-          publishPolicy: "auto",
-          channel,
-        };
-        await runGraph(
-          {
-            jobId: job.id,
-            traceId: job.traceId,
-            ...body,
-          },
-          { db, redis, logger, env },
-          fromStep
-        );
+        const trendDomain = norm?.domain ?? DEFAULT_TREND_DOMAIN;
+
+        if (job.sourceType === "trend_aggregate") {
+          await runTrendGraph(
+            {
+              jobId: job.id,
+              traceId: job.traceId,
+              domain: trendDomain,
+              rawItems,
+              channel,
+            },
+            { db, redis, logger, env }
+          );
+        } else {
+          const body: RunJobBody = {
+            sourceType: job.sourceType as RunJobBody["sourceType"],
+            rawItems,
+            publishPolicy: "auto",
+            channel,
+          };
+          await runGraph(
+            {
+              jobId: job.id,
+              traceId: job.traceId,
+              ...body,
+            },
+            { db, redis, logger, env },
+            fromStep
+          );
+        }
       } finally {
         await lock.release(job.id);
       }
@@ -414,4 +538,4 @@ export function createJobService(deps: JobServiceDeps): JobService {
   };
 }
 
-const ERROR_CODES = { CONFLICT: "CONFLICT" } as const;
+const ERROR_CODES = { CONFLICT: "CONFLICT", NOT_FOUND: "NOT_FOUND" } as const;
