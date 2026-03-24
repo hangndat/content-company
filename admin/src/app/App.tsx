@@ -19,35 +19,52 @@ import { AppLogo } from "@/shared/components/AppLogo";
 import { PageCenteredSpin } from "@/shared/components/PageCenteredSpin";
 import { PageShell } from "@/shared/components/PageShell";
 import { RouteErrorBoundary } from "@/shared/components/RouteErrorBoundary";
+import { OPS_SHELL_PRIMARY, OPS_SHELL_PRIMARY_ACTIVE } from "@/shared/theme/opsShell";
+import { OpsMenuFooter, OpsMenuFooterCollapsed, OpsMenuHeader } from "./OpsShellChrome";
 import { opsProLayoutRoute, OpsAppRoutes } from "./opsLazyRoutes";
 
 const appTheme: ThemeConfig = {
   algorithm: antdTheme.defaultAlgorithm,
   token: {
-    colorPrimary: "#1677ff",
+    colorPrimary: OPS_SHELL_PRIMARY,
+    colorPrimaryActive: OPS_SHELL_PRIMARY_ACTIVE,
     borderRadius: 8,
     fontSize: 14,
-    colorBgLayout: "#f0f2f5",
-    colorSuccess: "#52c41a",
-    colorWarning: "#faad14",
-    colorError: "#ff4d4f",
+    colorBgLayout: "#f9fafb",
+    colorBorderSecondary: "#e5e7eb",
+    colorSuccess: "#16a34a",
+    colorWarning: "#d97706",
+    colorError: "#dc2626",
     fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+      '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
   components: {
     Layout: {
-      bodyBg: "#f0f2f5",
-      headerBg: "#fff",
-      siderBg: "#fff",
+      bodyBg: "#f9fafb",
+      headerBg: "#f9fafb",
+      siderBg: "#ffffff",
     },
     Card: {
       headerFontSize: 15,
+      paddingLG: 20,
     },
     Table: {
       headerBg: "#fafafa",
+      borderColor: "#f0f0f0",
     },
     Menu: {
-      itemBorderRadius: 6,
+      itemBorderRadius: 8,
+      itemMarginInline: 4,
+      itemHeight: 40,
+      iconSize: 16,
+      collapsedIconSize: 16,
+      itemSelectedBg: "rgba(124, 58, 237, 0.09)",
+      itemSelectedColor: OPS_SHELL_PRIMARY_ACTIVE,
+      itemHoverBg: "rgba(124, 58, 237, 0.05)",
+      subMenuItemBorderRadius: 8,
+    },
+    Segmented: {
+      trackBg: "rgba(0,0,0,0.04)",
     },
   },
 };
@@ -58,15 +75,28 @@ function LayoutContent() {
   return (
     <>
       <ProLayout
-        title="Vận hành nội dung"
+        title={false}
         logo={<AppLogo />}
-        layout="mix"
+        layout="side"
         fixedHeader
         fixSiderbar
+        siderWidth={260}
         location={{ pathname: location.pathname }}
         route={opsProLayoutRoute}
-        contentStyle={{ margin: 0, minHeight: "calc(100vh - 56px)" }}
-        menu={{ collapsedShowTitle: true }}
+        contentStyle={{
+          margin: 0,
+          minHeight: "calc(100vh - 56px)",
+          background: "#f9fafb",
+        }}
+        menu={{ collapsedShowTitle: false, type: "sub" }}
+        menuHeaderRender={(logo, _title, props) =>
+          props?.collapsed ? (
+            <div className="cc-sider-header-collapsed">{logo}</div>
+          ) : (
+            <OpsMenuHeader logo={logo} />
+          )
+        }
+        menuFooterRender={(props) => (props?.collapsed ? <OpsMenuFooterCollapsed /> : <OpsMenuFooter />)}
         menuItemRender={(item, dom) => {
           if (item.path && !item.isUrl) {
             return <Link to={item.path}>{dom}</Link>;
@@ -74,35 +104,23 @@ function LayoutContent() {
           return dom;
         }}
         subMenuItemRender={(_, dom) => dom}
-        avatarProps={{
-          src: undefined,
-          title: "Quản trị",
-        }}
-        footerRender={() => (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "12px 16px",
-              fontSize: 12,
-              color: "rgba(0,0,0,0.45)",
-            }}
-          >
-            Content Company — điều khiển pipeline AI, hàng đợi BullMQ và dữ liệu vận hành.
-          </div>
-        )}
+        actionsRender={() => []}
+        footerRender={false}
       >
         <PageContainer fixHeader pageHeaderRender={false} className="app-page-container">
-          <RouteErrorBoundary>
-            <Suspense
-              fallback={
-                <PageShell>
-                  <PageCenteredSpin tip="Đang tải trang…" />
-                </PageShell>
-              }
-            >
-              <OpsAppRoutes />
-            </Suspense>
-          </RouteErrorBoundary>
+          <div className="cc-main-content-surface">
+            <RouteErrorBoundary>
+              <Suspense
+                fallback={
+                  <PageShell>
+                    <PageCenteredSpin tip="Đang tải trang…" />
+                  </PageShell>
+                }
+              >
+                <OpsAppRoutes />
+              </Suspense>
+            </RouteErrorBoundary>
+          </div>
         </PageContainer>
       </ProLayout>
       <FloatButton.BackTop type="default" icon={<VerticalAlignTopOutlined />} />

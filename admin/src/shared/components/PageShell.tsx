@@ -1,24 +1,10 @@
-import { theme } from "antd";
 import type { ReactNode } from "react";
 
 type PageShellProps = {
   children: ReactNode;
 };
 
-/** Khung dọc thống nhất: khoảng cách giữa header / toolbar / nội dung. */
+/** Khung dọc thống nhất: khoảng cách giữa header / toolbar / nội dung (CSS: `.cc-page-shell`). */
 export function PageShell({ children }: PageShellProps) {
-  const { token } = theme.useToken();
-  return (
-    <div
-      className="cc-page-shell"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: token.marginLG,
-        width: "100%",
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div className="cc-page-shell">{children}</div>;
 }

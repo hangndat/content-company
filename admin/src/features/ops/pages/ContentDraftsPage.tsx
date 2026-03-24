@@ -178,7 +178,7 @@ export default function ContentDraftsPage() {
         title="Draft (content pipeline)"
         description="Bản ghi entity `content_draft` sau khi content graph hoàn thành. Xem đầy đủ outline/draft trên trang chi tiết job. Lọc theo job: thêm ?jobId=… trên URL hoặc từ link ở job detail."
       />
-      <PageToolbar>
+      <PageToolbar spread>
         <ProForm<FilterForm>
           form={filterForm}
           layout="inline"
@@ -189,7 +189,6 @@ export default function ContentDraftsPage() {
             setSourceType(all.sourceType ?? "");
             setPagination((p) => ({ ...p, offset: 0 }));
           }}
-          style={{ flex: 1 }}
         >
           <ProFormSelect
             name="status"
@@ -206,7 +205,7 @@ export default function ContentDraftsPage() {
             allowClear={false}
           />
         </ProForm>
-        <Space>
+        <Space style={{ flexShrink: 0 }}>
           {jobIdFilter ? (
             <Button onClick={clearJobFilter}>Bỏ lọc job</Button>
           ) : null}

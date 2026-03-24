@@ -179,7 +179,7 @@ export default function JobsListPage() {
         title="Job"
         description="Theo dõi từng lần chạy pipeline. Bảng gọn: mở rộng dòng để xem trace, điểm, retry, thời lượng. Lọc theo trạng thái / nguồn, phân trang server."
       />
-      <PageToolbar>
+      <PageToolbar spread>
         <ProForm<{ status: string; sourceType: string }>
           form={filterForm}
           layout="inline"
@@ -205,7 +205,7 @@ export default function JobsListPage() {
             allowClear={false}
           />
         </ProForm>
-        <Space wrap>
+        <Space wrap style={{ flexShrink: 0 }}>
           <Button
             type="primary"
             icon={<LineChartOutlined />}

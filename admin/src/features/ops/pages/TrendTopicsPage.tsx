@@ -128,20 +128,20 @@ export default function TrendTopicsPage() {
   return (
     <PageShell>
       <AppPageHeader
+        breadcrumb="Content Company / Thư viện topic"
         title="Thư viện topic"
         description="Mỗi dòng là một topic đã ghi nhận khi trend job hoàn thành. Danh sách sắp theo số bài (giảm dần), rồi mới theo thời gian ghi. Nút Chạy pipeline mở form job nội dung với đúng job trend và chỉ số topic; hoặc vào chi tiết topic / job."
       />
-      <PageToolbar>
+      <PageToolbar spread>
         <ProForm<FilterForm>
           form={filterForm}
           layout="inline"
           submitter={false}
           onValuesChange={(_, all) => setDomainFilter(all.domain?.trim() || undefined)}
-          style={{ flex: 1 }}
         >
           <ProFormText name="domain" label="Domain" fieldProps={{ placeholder: "vd. sports-vn", allowClear: true }} />
         </ProForm>
-        <Space>
+        <Space style={{ flexShrink: 0 }}>
           <Button icon={<ReloadOutlined />} onClick={load}>
             Làm mới
           </Button>
@@ -150,12 +150,14 @@ export default function TrendTopicsPage() {
       {error ? (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
       ) : null}
-      <PageTableCard>
+      <PageTableCard title="Danh sách topic">
         <Table<Row>
           rowKey="id"
           loading={loading}
           columns={columns}
           dataSource={data?.items ?? []}
+          tableLayout="fixed"
+          className="cc-table-fill"
           pagination={{
             current: Math.floor(pagination.offset / pagination.limit) + 1,
             pageSize: pagination.limit,

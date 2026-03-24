@@ -1,6 +1,7 @@
 import { Card, Empty, Segmented } from "antd";
 import { Line } from "@ant-design/charts";
 import type { JobTrendPoint } from "@/features/ops/models/dashboard";
+import { OPS_CHART_COLOR_RANGE } from "@/shared/theme/opsShell";
 
 interface JobTrendChartProps {
   series: JobTrendPoint[];
@@ -69,6 +70,11 @@ export function JobTrendChart({
           seriesField="metric"
           xAxis={{ type: "cat" }}
           legend={{ position: "top" }}
+          scale={{
+            color: {
+              range: [...OPS_CHART_COLOR_RANGE],
+            },
+          }}
         />
       )}
     </Card>

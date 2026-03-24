@@ -68,7 +68,8 @@ export default function OpsDashboardPage() {
   return (
     <PageShell>
       <AppPageHeader
-        title="Tổng quan vận hành"
+        breadcrumb="Content Company / Tổng quan"
+        title="Tổng quan"
         description="Theo dõi sức khỏe pipeline nội dung AI: job, hàng đợi BullMQ, xuất bản, hiệu suất topic/prompt, thử nghiệm đa nhánh và liên kết Langfuse."
       />
       <DashboardFilterBar

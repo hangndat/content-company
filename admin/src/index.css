@@ -1,19 +1,178 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Shell: sidebar & nội dung kiểu Langfuse */
+.ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed {
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: none;
+}
+
+.ant-pro-sider.ant-layout-sider > .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  /* Không dùng overflow-x: hidden — ProLayout đặt nút collapse lệch nửa ra ngoài, sẽ bị cắt */
+  overflow-x: visible;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Nút thu/phóng (nửa nằm ngoài sider) luôn hiển thị đủ */
+.ant-pro-sider .ant-pro-sider-collapsed-button {
+  z-index: 2;
+}
+
+/* Thu gọn sidebar: chỉ logo, không cắt chữ / ô tìm */
+.cc-sider-header-collapsed {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.cc-sider-footer-collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin-top: auto;
+}
+
+.cc-sider-footer-expanded {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.cc-sider-icon-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  line-height: 1;
+}
+
+.cc-sider-icon-link .ant-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.ant-pro-sider .ant-pro-sider-menu {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ant-pro-sider .ant-menu.ant-menu-root {
+  background: transparent;
+  border-inline-end: none !important;
+}
+
+.ant-pro-layout .ant-layout-header.ant-pro-layout-header {
+  background: #f9fafb !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ant-pro-card,
+.ant-card {
+  border-color: #e5e7eb !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* Readable content width on large screens */
+/* Lề xám quanh khối nội dung trắng */
 .app-page-container .ant-pro-page-container-children-container {
-  max-width: 1400px;
-  margin-inline: auto;
+  max-width: none;
   width: 100%;
+  margin-inline: 0;
+  padding-inline: clamp(12px, 2vw, 24px);
+  padding-block: 16px 20px;
   box-sizing: border-box;
+}
+
+/* Toàn bộ page content: nền trắng, viền nhẹ — nằm trên nền layout xám */
+.cc-main-content-surface {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 24px rgba(0, 0, 0, 0.04);
+  padding: clamp(18px, 2.2vw, 26px) clamp(18px, 2.8vw, 32px) clamp(22px, 2.8vw, 32px);
+  box-sizing: border-box;
+  min-height: calc(100vh - 72px);
+}
+
+/* Cột nội dung trang: nhịp dọc thống nhất */
+.cc-page-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: clamp(18px, 2.2vw, 26px);
+}
+
+/* Vùng tiêu đề + phân tách khỏi toolbar / bảng */
+.cc-page-header {
+  margin: 0;
+  padding-bottom: clamp(14px, 2vw, 20px);
+  margin-bottom: 2px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Thanh lọc / thao tác: nền nhạt, gom nhóm */
+.cc-page-toolbar {
+  padding: 12px 14px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+/* Card trong khối trắng: bớt “3 lớp viền”, vẫn tách được bảng */
+.cc-main-content-surface .ant-card {
+  box-shadow: none !important;
+  border-color: #ececec !important;
+}
+
+.cc-main-content-surface .ant-card .ant-card-head {
+  border-bottom-color: #f0f0f0;
+  min-height: 48px;
+}
+
+.cc-main-content-surface .ant-card .ant-card-head-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.ant-pro-layout .ant-pro-layout-content {
+  max-width: 100%;
+}
+
+.cc-table-fill.ant-table-wrapper {
+  width: 100%;
+}
+
+.cc-table-fill .ant-table {
+  width: 100% !important;
 }
 
 /* Responsive: reduce padding on mobile */
@@ -34,6 +193,12 @@ body {
     padding-block: 8px !important;
     max-width: 100% !important;
   }
+
+  .cc-main-content-surface {
+    border-radius: 8px;
+    padding: 12px 10px 16px;
+    min-height: calc(100dvh - 96px);
+  }
   .ant-pro-card,
   .ant-card {
     border-radius: 8px;
@@ -51,9 +216,12 @@ body {
   .ant-card-extra {
     padding: 0 !important;
   }
-  .page-toolbar {
-    padding: 6px 0 10px !important;
-    margin-bottom: 10px !important;
+  .cc-page-toolbar {
+    padding: 10px 10px !important;
+  }
+
+  .cc-page-header {
+    padding-bottom: 12px !important;
   }
 }
 
@@ -63,6 +231,11 @@ body {
   .ant-pro-layout-content,
   .ant-pro-page-container-children-container {
     padding-inline: 2px !important;
+  }
+
+  .cc-main-content-surface {
+    padding: 10px 8px 14px;
+    min-height: calc(100dvh - 88px);
   }
   .ant-card-body {
     padding: 8px !important;
@@ -87,17 +260,17 @@ body {
 }
 
 /* PageToolbar: full width filters on mobile */
-.page-toolbar .ant-select {
+.cc-page-toolbar .ant-select {
   flex: 1;
   min-width: 0;
 }
 
 @media (max-width: 576px) {
-  .page-toolbar .ant-select {
+  .cc-page-toolbar .ant-select {
     flex: 1 1 100%;
     max-width: 100%;
   }
-  .page-toolbar .ant-select-selector {
+  .cc-page-toolbar .ant-select-selector {
     width: 100% !important;
   }
 }

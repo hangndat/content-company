@@ -136,7 +136,7 @@ export default function PostsPage() {
         title="Bài đã xuất bản"
         description="Theo dõi kết quả publish theo kênh: trạng thái, thời điểm và tham chiếu hệ thống ngoài (n8n / CMS)."
       />
-      <PageToolbar>
+      <PageToolbar spread>
         <ProForm<FilterFormValues>
           form={filterForm}
           layout="inline"
@@ -160,7 +160,7 @@ export default function PostsPage() {
           />
           <ProFormDateRangePicker name="range" label="Khoảng ngày" fieldProps={{ allowClear: true }} />
         </ProForm>
-        <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
+        <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading} style={{ flexShrink: 0 }}>
           Làm mới
         </Button>
       </PageToolbar>

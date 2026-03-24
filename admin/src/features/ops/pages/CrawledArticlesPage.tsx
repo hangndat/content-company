@@ -196,7 +196,7 @@ export default function CrawledArticlesPage() {
           </span>
         }
       />
-      <PageToolbar>
+      <PageToolbar spread>
         <ProForm<FilterForm>
           form={filterForm}
           layout="inline"
@@ -212,7 +212,7 @@ export default function CrawledArticlesPage() {
             return true;
           }}
           submitter={false}
-          style={{ flex: 1, flexWrap: "wrap", rowGap: 8 }}
+          style={{ flexWrap: "wrap", rowGap: 8 }}
         >
           <ProFormText
             name="q"
@@ -248,7 +248,7 @@ export default function CrawledArticlesPage() {
             </Button>
           </Form.Item>
         </ProForm>
-        <Space wrap>
+        <Space wrap style={{ flexShrink: 0 }}>
           <Button
             type="primary"
             icon={<LineChartOutlined />}
