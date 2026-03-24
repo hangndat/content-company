@@ -1,0 +1,49 @@
+{
+  "name": "content-company",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hybrid AI content/affiliate automation - orchestrator + n8n workflows",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch orchestrator/src/index.ts",
+    "dev:admin": "cd admin && npm run dev",
+    "dev:full": "npx concurrently -n api,admin -c blue,magenta \"npm run dev\" \"npm run dev:admin\"",
+    "dev:api": "tsx watch orchestrator/src/index.ts",
+    "dev:worker": "tsx watch orchestrator/src/worker/index.ts",
+    "start": "node --import tsx orchestrator/src/index.ts",
+    "start:worker": "node --import tsx dist/orchestrator/src/worker/index.js",
+    "build": "tsc -p orchestrator/tsconfig.json",
+    "db:generate": "cd orchestrator && prisma generate",
+    "db:migrate": "cd orchestrator && prisma migrate deploy",
+    "db:migrate:dev": "cd orchestrator && prisma migrate dev",
+    "db:studio": "cd orchestrator && prisma studio",
+    "db:seed": "cd orchestrator && npx tsx prisma/seed.ts",
+    "aggregate:metrics": "npx tsx orchestrator/src/scripts/aggregate-metrics.ts",
+    "aggregate:experiments": "npx tsx orchestrator/src/scripts/aggregate-experiment-metrics.ts",
+    "trigger:job": "npx tsx scripts/trigger-job.ts",
+    "inspect:job": "npx tsx scripts/inspect-job.ts",
+    "n8n:import": "docker compose exec n8n n8n import:workflow --separate --input=/workflows",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "@fastify/cors": "^10.0.1",
+    "langfuse": "^3.0.0",
+    "@prisma/client": "^6.0.0",
+    "fastify": "^5.0.0",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.4.1",
+    "openai": "^4.73.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prisma": "^6.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

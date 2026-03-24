@@ -1,0 +1,63 @@
+{
+  "name": "C - Publish Result Tracking",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "notes": "In real flow, this is connected after your Publish node (e.g. from Workflow A or B)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "jobId", "value": "test-job-id", "type": "string" },
+            { "id": "a2", "name": "channelId", "value": "blog-1", "type": "string" },
+            { "id": "a3", "name": "publishRef", "value": "ext-ref-123", "type": "string" },
+            { "id": "a4", "name": "status", "value": "published", "type": "string" }
+          ]
+        }
+      },
+      "id": "set-1",
+      "name": "Set Publish Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "notes": "Replace with actual values from your publish step: jobId, channelId, publishRef, status"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:3000/v1/jobs/{{ $json.jobId }}/publish-callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $env['ORCHESTRATOR_API_KEY'] }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channelId: $json.channelId, publishRef: $json.publishRef, status: $json.status }) }}"
+      },
+      "id": "http-1",
+      "name": "Call Publish Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Set Publish Result", "type": "main", "index": 0 }]]
+    },
+    "Set Publish Result": {
+      "main": [[{ "node": "Call Publish Callback", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

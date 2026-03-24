@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist/orchestrator"
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts"]
+}
