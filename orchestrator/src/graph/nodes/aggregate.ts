@@ -58,6 +58,10 @@ export function groupsToTrendCandidates(
       .join("\n\n---\n\n")
       .slice(0, maxBodyLength);
     const itemRefs = group.map((i) => i.url).filter((u): u is string => !!u);
+    const sourceArticles = group.map((i) => ({
+      title: i.title,
+      ...(i.url ? { url: i.url } : {}),
+    }));
 
     trendCandidates.push({
       topic: canonical.title,
@@ -65,6 +69,7 @@ export function groupsToTrendCandidates(
       sources: [...sources].sort(),
       sourceCount: sources.length,
       itemRefs,
+      sourceArticles,
     });
   }
   return trendCandidates;

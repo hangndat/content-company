@@ -13,6 +13,9 @@ import { registerAggregateMetricsRoute } from "./routes/aggregate-metrics.js";
 import { registerExperimentRoutes } from "./routes/experiments.js";
 import { registerDashboardRoutes } from "./routes/dashboard.js";
 import { registerPublishedRoutes } from "./routes/published.js";
+import { registerTrendTopicsRoutes } from "./routes/trend-topics.js";
+import { registerCrawledArticlesRoutes } from "./routes/crawled-articles.js";
+import { registerContentDraftRoutes } from "./routes/content-drafts.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
 import { registerErrorHandler } from "./middleware/error.js";
 import type { JobService } from "../services/job.js";
@@ -63,6 +66,9 @@ export async function createServer(deps: ServerDeps) {
   await registerExperimentRoutes(app, { db: deps.db });
   await registerDashboardRoutes(app, { db: deps.db, jobQueue: deps.jobQueue });
   await registerPublishedRoutes(app, { db: deps.db });
+  await registerTrendTopicsRoutes(app, { db: deps.db });
+  await registerCrawledArticlesRoutes(app, { db: deps.db });
+  await registerContentDraftRoutes(app, { db: deps.db });
   await registerObservabilityRoutes(app, deps.env);
 
   return app;

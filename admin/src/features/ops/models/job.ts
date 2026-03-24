@@ -11,15 +11,23 @@ export interface RawItem {
   sourceId?: string;
 }
 
+export interface TrendSourceArticle {
+  title: string;
+  url?: string;
+}
+
 export interface TrendCandidate {
   topic: string;
   aggregatedBody?: string;
   sources?: string[];
   sourceCount?: number;
   itemRefs?: string[];
+  sourceArticles?: TrendSourceArticle[];
   embeddingModel?: string;
   embeddingDimensions?: number;
   topicEmbedding?: number[];
+  /** Cross-job dedup: đã thấy fingerprint topic ở job trend khác trước đó */
+  seenBefore?: boolean;
 }
 
 export interface JobStepSnapshot {
@@ -37,6 +45,32 @@ export interface JobStepSnapshot {
     rawItems?: RawItem[];
     [key: string]: unknown;
   };
+}
+
+export interface JobInputNormalizedSummary {
+  domain?: string;
+  channel?: { id?: string; type?: string };
+  rawItemsCount?: number;
+}
+
+export interface JobApprovalRow {
+  id: string;
+  action: string;
+  actor: string;
+  reason: string | null;
+  createdAt: string;
+}
+
+/** Bản ghi `content_draft` — output chuẩn hoá sau content pipeline (đồng bộ với JobOutput). */
+export interface JobContentDraftPayload {
+  id: string;
+  outline: string | null;
+  body: string | null;
+  reviewNotes: string | null;
+  decision: string | null;
+  scores: { topicScore: number | null; reviewScore: number | null };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface JobDetailResponse {
@@ -59,17 +93,24 @@ export interface JobDetailResponse {
   };
   input: {
     rawPayload: { rawItems?: RawItem[] };
+    normalizedSummary?: JobInputNormalizedSummary;
   } | null;
+  approvals: JobApprovalRow[];
   steps: JobStepSnapshot[];
+  contentDraft: JobContentDraftPayload | null;
 }
 
 export interface JobListItem {
   id: string;
+  traceId: string;
   status: string;
   decision: string | null;
   sourceType: string;
   createdAt: string;
   completedAt: string | null;
+  retryCount: number;
+  topicScore: number | null;
+  reviewScore: number | null;
   /** Chỉ job trend_aggregate */
   trendCandidateCount?: number;
   trendTopTopic?: string;
@@ -77,6 +118,7 @@ export interface JobListItem {
 
 export interface JobsListResponse {
   items: JobListItem[];
+  total: number;
 }
 
 export interface RunJobApiResponse {

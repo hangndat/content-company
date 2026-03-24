@@ -150,13 +150,17 @@ npm run dev:admin
 ### Option C: Queue mode (async)
 
 ```bash
-# .env: USE_QUEUE=1
+# .env: USE_QUEUE=1 (mặc định trong .env.example)
 
-# Terminal 1: API
-npm run dev:api
+# Một lệnh: API + worker
+npm run dev:queue
 
-# Terminal 2: Worker
-npm run dev:worker
+# Hoặc tách terminal:
+# Terminal 1: API — npm run dev:api
+# Terminal 2: Worker — npm run dev:worker
+
+# API + worker + admin
+npm run dev:full:queue
 ```
 
 ---

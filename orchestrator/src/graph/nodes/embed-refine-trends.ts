@@ -1,5 +1,5 @@
 import type { GraphState } from "../types.js";
-import type { TrendCandidate } from "../../trends/trend-candidate.js";
+import type { TrendCandidate, TrendSourceArticle } from "../../trends/trend-candidate.js";
 import type { Env } from "../../config/env.js";
 import { getTrendDomainProfile } from "../../trends/domain-profiles.js";
 import {
@@ -45,6 +45,26 @@ function clusterIndices(n: number, shouldMerge: (i: number, j: number) => boolea
   return [...buckets.values()];
 }
 
+function mergeSourceArticlesFromCandidates(group: TrendCandidate[]): TrendSourceArticle[] {
+  const seen = new Set<string>();
+  const out: TrendSourceArticle[] = [];
+  for (const c of group) {
+    const list =
+      c.sourceArticles && c.sourceArticles.length > 0
+        ? c.sourceArticles
+        : (c.itemRefs ?? []).map((url) => ({ title: url, url }));
+    for (const m of list) {
+      const key = m.url?.trim()
+        ? m.url.trim().toLowerCase()
+        : `t:${m.title.trim().toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(m.url ? { title: m.title, url: m.url } : { title: m.title });
+    }
+  }
+  return out;
+}
+
 function mergeCandidateGroup(
   indices: number[],
   candidates: TrendCandidate[],
@@ -64,6 +84,7 @@ function mergeCandidateGroup(
 
   const sources = [...new Set(group.flatMap((c) => c.sources))].sort();
   const itemRefs = [...new Set(group.flatMap((c) => c.itemRefs))];
+  const sourceArticles = mergeSourceArticlesFromCandidates(group);
 
   const bodies = group.map((c) => c.aggregatedBody.trim()).filter(Boolean);
   const aggregatedBody = bodies
@@ -78,6 +99,7 @@ function mergeCandidateGroup(
     sources,
     sourceCount: sources.length,
     itemRefs,
+    sourceArticles,
     embeddingModel: opts.embeddingModel,
     embeddingDimensions: dims,
   };

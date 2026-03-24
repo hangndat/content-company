@@ -1,6 +1,5 @@
 import { lazy } from "react";
-import { Route, Routes } from "react-router-dom";
-import type { ReactNode } from "react";
+import { Route, Routes, Navigate } from "react-router-dom";
 import {
   DashboardOutlined,
   ExperimentOutlined,
@@ -8,27 +7,33 @@ import {
   UnorderedListOutlined,
   SendOutlined,
   SettingOutlined,
+  TagsOutlined,
+  LineChartOutlined,
+  FileSearchOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 
-export type OpsNavItem = {
-  path: string;
-  name: string;
-  icon: ReactNode;
-};
-
-/** Top-level ops sidebar: single source of truth for ProLayout menu paths and labels. */
-export const OPS_NAV_ITEMS: OpsNavItem[] = [
-  { path: "/", name: "Tổng quan", icon: <DashboardOutlined /> },
-  { path: "/jobs", name: "Job", icon: <UnorderedListOutlined /> },
-  { path: "/posts", name: "Bài đăng", icon: <SendOutlined /> },
-  { path: "/experiments", name: "Thử nghiệm", icon: <ExperimentOutlined /> },
-  { path: "/agents", name: "Agent AI", icon: <TeamOutlined /> },
-  { path: "/settings", name: "Cài đặt", icon: <SettingOutlined /> },
-];
-
+/** Menu cạnh: nhóm Trend & crawl = nguồn tin → fingerprint topic. */
 export const opsProLayoutRoute = {
   path: "/",
-  routes: OPS_NAV_ITEMS.map(({ path, name, icon }) => ({ path, name, icon })),
+  routes: [
+    { path: "/", name: "Tổng quan", icon: <DashboardOutlined /> },
+    { path: "/jobs", name: "Job", icon: <UnorderedListOutlined /> },
+    { path: "/content-drafts", name: "Draft nội dung", icon: <FileTextOutlined /> },
+    {
+      path: "/trend-crawl",
+      name: "Trend & crawl",
+      icon: <LineChartOutlined />,
+      routes: [
+        { path: "/crawled-articles", name: "Bài đã crawl", icon: <FileSearchOutlined /> },
+        { path: "/trend-topics", name: "Thư viện topic", icon: <TagsOutlined /> },
+      ],
+    },
+    { path: "/posts", name: "Bài đăng", icon: <SendOutlined /> },
+    { path: "/experiments", name: "Thử nghiệm", icon: <ExperimentOutlined /> },
+    { path: "/agents", name: "Agent AI", icon: <TeamOutlined /> },
+    { path: "/settings", name: "Cài đặt", icon: <SettingOutlined /> },
+  ],
 };
 
 export const LazyOpsDashboardPage = lazy(() => import("@/features/ops/pages/OpsDashboardPage"));
@@ -41,6 +46,10 @@ export const LazyAgentsListPage = lazy(() => import("@/features/ops/pages/Agents
 export const LazyAgentDetailPage = lazy(() => import("@/features/ops/pages/AgentDetailPage"));
 export const LazyPromptTuningPage = lazy(() => import("@/features/ops/pages/PromptTuningPage"));
 export const LazySettingsPage = lazy(() => import("@/features/ops/pages/SettingsPage"));
+export const LazyTrendTopicsPage = lazy(() => import("@/features/ops/pages/TrendTopicsPage"));
+export const LazyTrendTopicDetailPage = lazy(() => import("@/features/ops/pages/TrendTopicDetailPage"));
+export const LazyCrawledArticlesPage = lazy(() => import("@/features/ops/pages/CrawledArticlesPage"));
+export const LazyContentDraftsPage = lazy(() => import("@/features/ops/pages/ContentDraftsPage"));
 
 export function OpsAppRoutes() {
   return (
@@ -48,6 +57,11 @@ export function OpsAppRoutes() {
       <Route path="/" element={<LazyOpsDashboardPage />} />
       <Route path="/jobs" element={<LazyJobsListPage />} />
       <Route path="/jobs/:id" element={<LazyJobDetailPage />} />
+      <Route path="/content-drafts" element={<LazyContentDraftsPage />} />
+      <Route path="/trend-crawl" element={<Navigate to="/crawled-articles" replace />} />
+      <Route path="/crawled-articles" element={<LazyCrawledArticlesPage />} />
+      <Route path="/trend-topics/:id" element={<LazyTrendTopicDetailPage />} />
+      <Route path="/trend-topics" element={<LazyTrendTopicsPage />} />
       <Route path="/experiments" element={<LazyExperimentsPage />} />
       <Route path="/experiments/:id" element={<LazyExperimentDetailPage />} />
       <Route path="/posts" element={<LazyPostsPage />} />

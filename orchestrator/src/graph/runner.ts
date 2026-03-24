@@ -8,6 +8,7 @@ import { reviewer } from "./nodes/reviewer.js";
 import { decisionNode } from "./nodes/decision.js";
 import { createJobRepo } from "../repos/job.js";
 import { createContentVersionRepo } from "../repos/content-version.js";
+import { createContentDraftRepo } from "../repos/content-draft.js";
 import { createJobSnapshotRepo } from "../repos/job-snapshot.js";
 import { JOB_STATUS, DECISION } from "../config/constants.js";
 import { runStepsWithSnapshots } from "./run-steps-with-snapshots.js";
@@ -57,6 +58,7 @@ export async function runGraph(
   const { db, logger } = deps;
   const jobRepo = createJobRepo(db);
   const contentVersionRepo = createContentVersionRepo(db);
+  const contentDraftRepo = createContentDraftRepo(db);
   const snapshotRepo = createJobSnapshotRepo(db);
 
   const job = await jobRepo.findById(input.jobId);
@@ -181,6 +183,15 @@ export async function runGraph(
       },
       promptVersions: state.promptVersions,
       experimentAssignments: state.experimentAssignments,
+    });
+    await contentDraftRepo.upsert({
+      jobId: input.jobId,
+      outline: state.outline ?? null,
+      body: state.draft ?? null,
+      reviewNotes: state.reviewNotes ?? null,
+      decision,
+      topicScore: state.topicScore ?? null,
+      reviewScore: state.reviewScore ?? null,
     });
     const status =
       decision === DECISION.REVIEW_REQUIRED

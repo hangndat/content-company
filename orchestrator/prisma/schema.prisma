@@ -33,6 +33,46 @@ model Job {
   snapshots       JobStateSnapshot[]
   contentVersions ContentVersion[]
   metrics         ContentMetric[]
+  trendTopicObservations TrendTopicObservation[]
+  /// Bản ghi output chính thức của content pipeline (1:1 job); đồng bộ khi graph hoàn thành.
+  contentDraft    ContentDraft?
+}
+
+/// Append-only per completed trend job slot; used for cross-job topic dedup / admin library.
+model TrendTopicObservation {
+  id             String   @id @default(uuid())
+  fingerprint    String   @db.VarChar(64)
+  trendDomain    String   @map("trend_domain") @db.VarChar(64)
+  sourceJobId    String   @map("source_job_id")
+  candidateIndex Int      @map("candidate_index")
+  topicTitle     String   @map("topic_title") @db.VarChar(512)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  job Job @relation(fields: [sourceJobId], references: [id], onDelete: Cascade)
+
+  @@index([fingerprint])
+  @@index([sourceJobId])
+  @@index([trendDomain])
+  @@map("trend_topic_observation")
+}
+
+/// Bài crawl / RSS lưu theo khóa ổn định; tránh đưa cùng một bài vào trend job lặp trong cửa sổ thời gian.
+model CrawledArticle {
+  id                  String    @id @default(uuid())
+  dedupeKey           String    @unique @map("dedupe_key") @db.VarChar(64)
+  trendDomain         String    @map("trend_domain") @db.VarChar(64)
+  url                 String?   @db.VarChar(2048)
+  title               String    @db.VarChar(512)
+  bodyPreview         String?   @map("body_preview") @db.Text
+  sourceId            String?   @map("source_id") @db.VarChar(128)
+  rawPayload          Json?     @map("raw_payload")
+  firstSeenAt         DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt          DateTime  @updatedAt @map("last_seen_at")
+  processedForTrendAt DateTime? @map("processed_for_trend_at")
+
+  @@index([trendDomain])
+  @@index([processedForTrendAt])
+  @@map("crawled_article")
 }
 
 model JobInput {
@@ -56,6 +96,24 @@ model JobOutput {
   updatedAt              DateTime @updatedAt @map("updated_at")
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+/// Entity draft: snapshot outline + body + review khi content graph xong (khác trend_aggregate).
+model ContentDraft {
+  id          String    @id @default(uuid())
+  jobId       String    @unique @map("job_id")
+  outline     String?   @db.Text
+  body        String?   @db.Text
+  reviewNotes String?   @map("review_notes") @db.Text
+  decision    String?   @db.VarChar(32)
+  topicScore  Decimal?  @map("topic_score") @db.Decimal(5, 4)
+  reviewScore Decimal?  @map("review_score") @db.Decimal(5, 4)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("content_draft")
 }
 
 model ContentVersion {

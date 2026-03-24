@@ -22,16 +22,18 @@ npm run db:migrate
 # (Optional) Verify Postgres + Redis after compose
 npm run verify:local
 
-# 5. Start orchestrator + admin (full flow)
-npm run dev:full
+# 5. Start orchestrator + BullMQ worker + admin (.env.example có USE_QUEUE=1)
+npm run dev:full:queue
 # → Orchestrator: http://localhost:3000
 # → Admin Dashboard: http://localhost:5174
 ```
 
 **Alternatives:**
-- `npm run dev` — orchestrator only
+- `npm run dev:full` — API + admin only (chỉ an toàn nếu `USE_QUEUE=0` trong `.env`)
+- `npm run dev:queue` — API + worker (không admin)
+- `npm run dev` — orchestrator only (với `USE_QUEUE=1` cần thêm `npm run dev:worker` ở terminal khác)
 - `npm run dev:admin` — admin only (orchestrator must be running)
-- Queue mode: `USE_QUEUE=1 npm run dev:api` + `npm run dev:worker` (separate terminals)
+- Tắt queue: đặt `USE_QUEUE=0` trong `.env` → có thể dùng `npm run dev:full` (graph chạy trong request, submit lâu hơn)
 
 ## Langfuse (LLM tracing & cost)
 

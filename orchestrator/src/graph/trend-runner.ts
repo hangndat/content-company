@@ -9,13 +9,15 @@ import { createJobSnapshotRepo } from "../repos/job-snapshot.js";
 import { JOB_STATUS } from "../config/constants.js";
 import type { TrendCandidate } from "../trends/trend-candidate.js";
 import { runStepsWithSnapshots } from "./run-steps-with-snapshots.js";
+import { syncTrendTopicObservations } from "../services/trend-topic-observations.js";
+import { markNormalizedItemsProcessedForTrend } from "../services/crawled-articles.js";
 
-const STEPS = ["normalize", "aggregate", "embedRefine"] as const;
-
-export type RunTrendGraphInput = RunTrendJobBody & {
+export type RunTrendGraphInput = Omit<RunTrendJobBody, "skipArticleDedup"> & {
   jobId: string;
   traceId: string;
 };
+
+export const TREND_GRAPH_STEPS = ["normalize", "aggregate", "embedRefine"] as const;
 
 export type RunTrendGraphDeps = {
   db: import("@prisma/client").PrismaClient;
@@ -39,9 +41,25 @@ function stateToJson(state: TrendGraphState): object {
   };
 }
 
+function hydrateTrendStateFromSnapshot(
+  base: TrendGraphState,
+  snapped: Record<string, unknown>
+): TrendGraphState {
+  return {
+    ...base,
+    trendDomain: (snapped.trendDomain as string) ?? base.trendDomain,
+    rawItems: (snapped.rawItems as TrendGraphState["rawItems"]) ?? base.rawItems,
+    channel: (snapped.channel as TrendGraphState["channel"]) ?? base.channel,
+    normalizedItems:
+      (snapped.normalizedItems as TrendGraphState["normalizedItems"]) ?? base.normalizedItems,
+    trendCandidates: (snapped.trendCandidates as TrendCandidate[]) ?? base.trendCandidates,
+  };
+}
+
 export async function runTrendGraph(
   input: RunTrendGraphInput,
-  deps: RunTrendGraphDeps
+  deps: RunTrendGraphDeps,
+  fromStep?: string
 ): Promise<void> {
   const { db, logger, env } = deps;
   const jobRepo = createJobRepo(db);
@@ -62,12 +80,24 @@ export async function runTrendGraph(
     retryCount,
   };
 
+  let startIdx = 0;
+  if (fromStep) {
+    const stepIdx = TREND_GRAPH_STEPS.indexOf(fromStep as (typeof TREND_GRAPH_STEPS)[number]);
+    startIdx = stepIdx >= 0 ? stepIdx : 0;
+    const prevStep = startIdx > 0 ? TREND_GRAPH_STEPS[startIdx - 1]! : null;
+    const latest = prevStep ? await snapshotRepo.getByStep(input.jobId, prevStep) : null;
+    if (latest?.stateJson && typeof latest.stateJson === "object") {
+      state = hydrateTrendStateFromSnapshot(state, latest.stateJson as Record<string, unknown>);
+    }
+  }
+  const stepsToRun = TREND_GRAPH_STEPS.slice(startIdx);
+
   try {
     state = await runStepsWithSnapshots({
       jobId: input.jobId,
       logger,
       logLabel: "Trend graph step",
-      steps: STEPS,
+      steps: stepsToRun,
       initialState: state,
       onStep: async (step, prev) => {
         let delta: Partial<TrendGraphState> = {};
@@ -103,6 +133,15 @@ export async function runTrendGraph(
       jobId: input.jobId,
       trendCandidates: state.trendCandidates ?? [],
     });
+    await syncTrendTopicObservations(db, {
+      sourceJobId: input.jobId,
+      trendDomain: state.trendDomain ?? DEFAULT_TREND_DOMAIN,
+      candidates: state.trendCandidates ?? [],
+    });
+    const trendDomain = state.trendDomain ?? DEFAULT_TREND_DOMAIN;
+    if (state.normalizedItems.length > 0) {
+      await markNormalizedItemsProcessedForTrend(db, trendDomain, state.normalizedItems);
+    }
     await jobRepo.updateStatus(input.jobId, {
       status: JOB_STATUS.COMPLETED,
       completedAt: new Date(),

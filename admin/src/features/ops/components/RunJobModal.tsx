@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { App } from "antd";
-import { ModalForm, ProFormSelect, ProFormText } from "@ant-design/pro-components";
+import { App, Typography } from "antd";
+import { ModalForm, ProFormDependency, ProFormDigit, ProFormSelect, ProFormText } from "@ant-design/pro-components";
 import { api } from "@/lib/api";
 import { DEFAULT_CHANNEL_FIELDS } from "@/features/ops/constants/jobRunForm";
 import { ProFormChannelFields } from "./ProFormChannelFields";
@@ -12,9 +12,17 @@ import { opsModalOpenChange, opsModalProps, opsModalSubmitter } from "@/features
 type RunJobModalProps = {
   open: boolean;
   onClose: () => void;
+  /** Mở modal với job trend + (tuỳ chọn) chỉ một candidate index */
+  initialTrendJobId?: string;
+  initialTopicIndex?: number | null;
 };
 
-export function RunJobModal({ open, onClose }: RunJobModalProps) {
+export function RunJobModal({
+  open,
+  onClose,
+  initialTrendJobId,
+  initialTopicIndex,
+}: RunJobModalProps) {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { submitting, guard } = useOpsModalSubmit();
@@ -25,28 +33,49 @@ export function RunJobModal({ open, onClose }: RunJobModalProps) {
       open={open}
       width={560}
       modalProps={opsModalProps(onClose)}
+      key={`${initialTrendJobId ?? ""}-${initialTopicIndex ?? ""}-${open}`}
       initialValues={{
         sourceType: "manual",
         publishPolicy: "review_only",
         ...DEFAULT_CHANNEL_FIELDS,
         rawItems: [{ title: "", body: "", url: "" }],
+        trendJobId: initialTrendJobId ?? "",
+        topicIndex: initialTopicIndex != null ? initialTopicIndex : undefined,
       }}
       onOpenChange={opsModalOpenChange(onClose)}
       submitter={opsModalSubmitter({ submitting, submitText: "Chạy", onClose })}
       onFinish={async (values) =>
         guard(async () => {
           try {
-            const result = await api.runJob({
-              sourceType: values.sourceType,
-              rawItems: mapContentRawItemsForApi(values.rawItems),
-              publishPolicy: values.publishPolicy,
-              channel: {
-                id: values.channelId,
-                type: values.channelType,
-                metadata: {},
-              },
-              topicHint: values.topicHint || undefined,
-            });
+            const trendId = typeof values.trendJobId === "string" ? values.trendJobId.trim() : "";
+            const useTrend = trendId.length > 0;
+            const result = useTrend
+              ? await api.runJob({
+                  sourceType: "trend",
+                  trendJobId: trendId,
+                  topicIndex:
+                    values.topicIndex !== undefined && values.topicIndex !== null && values.topicIndex !== ""
+                      ? Number(values.topicIndex)
+                      : undefined,
+                  publishPolicy: values.publishPolicy,
+                  channel: {
+                    id: values.channelId,
+                    type: values.channelType,
+                    metadata: {},
+                  },
+                  topicHint: values.topicHint || undefined,
+                })
+              : await api.runJob({
+                  sourceType: values.sourceType,
+                  rawItems: mapContentRawItemsForApi(values.rawItems),
+                  publishPolicy: values.publishPolicy,
+                  channel: {
+                    id: values.channelId,
+                    type: values.channelType,
+                    metadata: {},
+                  },
+                  topicHint: values.topicHint || undefined,
+                });
             message.success(`Đã tạo job: ${result.jobId}`);
             navigate(`/jobs/${result.jobId}`);
             return true;
@@ -57,17 +86,35 @@ export function RunJobModal({ open, onClose }: RunJobModalProps) {
         })
       }
     >
-      <ProFormSelect
-        name="sourceType"
-        label="Loại nguồn"
-        rules={[{ required: true }]}
-        options={[
-          { value: "manual", label: "Thủ công (manual)" },
-          { value: "rss", label: "RSS" },
-          { value: "webhook", label: "Webhook" },
-          { value: "api", label: "API" },
-        ]}
+      <ProFormText
+        name="trendJobId"
+        label="Trend job ID (UUID)"
+        fieldProps={{ placeholder: "Để trống nếu nhập raw items bên dưới" }}
       />
+      <ProFormDigit
+        name="topicIndex"
+        label="Chỉ số topic trong trend (tuỳ chọn)"
+        fieldProps={{ min: 0, precision: 0, placeholder: "Trống = tất cả candidate → một job gộp" }}
+      />
+      <ProFormDependency name={["trendJobId"]}>
+        {({ trendJobId }) => {
+          const locked = typeof trendJobId === "string" && trendJobId.trim().length > 0;
+          return (
+            <ProFormSelect
+              name="sourceType"
+              label="Loại nguồn"
+              rules={[{ required: !locked }]}
+              disabled={locked}
+              options={[
+                { value: "manual", label: "Thủ công (manual)" },
+                { value: "rss", label: "RSS" },
+                { value: "webhook", label: "Webhook" },
+                { value: "api", label: "API" },
+              ]}
+            />
+          );
+        }}
+      </ProFormDependency>
       <ProFormSelect
         name="publishPolicy"
         label="Chính sách xuất bản"
@@ -84,11 +131,25 @@ export function RunJobModal({ open, onClose }: RunJobModalProps) {
         label="Gợi ý chủ đề (tuỳ chọn)"
         fieldProps={{ placeholder: "vd. AI trong marketing" }}
       />
-      <ProFormRawItemsList label="Nội dung nguồn">
-        <ProFormText name="title" label="Tiêu đề" rules={[{ required: true, message: "Bắt buộc" }]} />
-        <ProFormText name="body" label="Nội dung (tuỳ chọn)" />
-        <ProFormText name="url" label="URL (tuỳ chọn)" />
-      </ProFormRawItemsList>
+      <ProFormDependency name={["trendJobId"]}>
+        {({ trendJobId }) => {
+          const locked = typeof trendJobId === "string" && trendJobId.trim().length > 0;
+          if (locked) {
+            return (
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                Đang dùng output của trend job — raw items không gửi lên API.
+              </Typography.Paragraph>
+            );
+          }
+          return (
+            <ProFormRawItemsList label="Nội dung nguồn">
+              <ProFormText name="title" label="Tiêu đề" rules={[{ required: true, message: "Bắt buộc" }]} />
+              <ProFormText name="body" label="Nội dung (tuỳ chọn)" />
+              <ProFormText name="url" label="URL (tuỳ chọn)" />
+            </ProFormRawItemsList>
+          );
+        }}
+      </ProFormDependency>
     </ModalForm>
   );
 }

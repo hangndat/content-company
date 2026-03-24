@@ -3,6 +3,7 @@ import { App, Typography } from "antd";
 import {
   ModalForm,
   ProFormSelect,
+  ProFormSwitch,
   ProFormText,
   ProFormTextArea,
   ProFormDependency,
@@ -36,6 +37,7 @@ export function RunTrendJobModal({ open, onClose }: RunTrendJobModalProps) {
       modalProps={opsModalProps(onClose)}
       initialValues={{
         domain: "sports-vn",
+        skipArticleDedup: false,
         ...DEFAULT_CHANNEL_FIELDS,
         rawItems: [{ title: "", body: "", url: "", sourceId: "" }],
       }}
@@ -46,6 +48,7 @@ export function RunTrendJobModal({ open, onClose }: RunTrendJobModalProps) {
           try {
             const result = await api.runTrendJob({
               domain: values.domain,
+              skipArticleDedup: Boolean(values.skipArticleDedup),
               rawItems: mapTrendRawItemsForApi(values.rawItems),
               channel: {
                 id: values.channelId,
@@ -72,6 +75,11 @@ export function RunTrendJobModal({ open, onClose }: RunTrendJobModalProps) {
         label="Domain"
         rules={[{ required: true }]}
         options={[...TREND_DOMAIN_OPTIONS]}
+      />
+      <ProFormSwitch
+        name="skipArticleDedup"
+        label="Bỏ lọc bài đã crawl (dedup)"
+        tooltip="Khi bật: đưa toàn bộ bài vào trend dù đã chạy trend gần đây (theo DB crawled_article)."
       />
       <ProFormChannelFields channelIdPlaceholder="Channel ID" />
       <ProFormRawItemsList label="Bài gốc / nguồn tin">

@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { Card, List, Space, Table, Tag, Typography, theme } from "antd";
+import { Button, Card, List, Space, Table, Tag, Typography, theme } from "antd";
 import type { TrendCandidate } from "@/features/ops/models/job";
 import { stripHtml } from "@/shared/utils/stripHtml";
+import { resolveArticlesForTopic, TopicArticlesBlock } from "@/features/ops/components/TopicArticlesBlock";
 
 const { Text, Paragraph, Title } = Typography;
 
 type Props = {
   candidates: TrendCandidate[];
   rawItemCount?: number;
+  /** Gọi với chỉ số candidate (0-based) để chạy pipeline nội dung từ topic đó */
+  onRunContentForTopic?: (topicIndex: number) => void;
 };
 
-export function TrendCandidatesSection({ candidates, rawItemCount }: Props) {
+export function TrendCandidatesSection({ candidates, rawItemCount, onRunContentForTopic }: Props) {
   const { token } = theme.useToken();
   const [listPage, setListPage] = useState(1);
   const [listPageSize, setListPageSize] = useState(12);
@@ -81,6 +84,9 @@ export function TrendCandidatesSection({ candidates, rawItemCount }: Props) {
                   <Tag color="default" style={{ marginInlineEnd: 0 }}>
                     #{(listPage - 1) * listPageSize + index + 1}
                   </Tag>
+                  {row.seenBefore ? (
+                    <Tag color="orange">Đã thấy (job khác)</Tag>
+                  ) : null}
                   <Title
                     level={5}
                     style={{
@@ -108,18 +114,17 @@ export function TrendCandidatesSection({ candidates, rawItemCount }: Props) {
                 >
                   {stripHtml(row.aggregatedBody ?? "") || "—"}
                 </Paragraph>
-                {(row.itemRefs?.length ?? 0) > 0 && (
-                  <Space wrap size={[4, 4]}>
-                    {(row.itemRefs ?? []).slice(0, 6).map((url) => (
-                      <a key={url} href={url} target="_blank" rel="noreferrer">
-                        {hostnameLabel(url)}
-                      </a>
-                    ))}
-                    {(row.itemRefs?.length ?? 0) > 6 && (
-                      <Text type="secondary">+{(row.itemRefs?.length ?? 0) - 6} URL</Text>
-                    )}
-                  </Space>
-                )}
+                <TopicArticlesBlock articles={resolveArticlesForTopic(row)} />
+                {onRunContentForTopic ? (
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ paddingLeft: 0 }}
+                    onClick={() => onRunContentForTopic((listPage - 1) * listPageSize + index)}
+                  >
+                    Chạy pipeline nội dung cho topic này
+                  </Button>
+                ) : null}
               </Space>
             </List.Item>
           )}
@@ -178,13 +183,4 @@ export function TrendCandidatesSection({ candidates, rawItemCount }: Props) {
       </Card>
     </Space>
   );
-}
-
-function hostnameLabel(url: string): string {
-  try {
-    const h = new URL(url).hostname.replace(/^www\./, "");
-    return h.length > 28 ? `${h.slice(0, 26)}…` : h;
-  } catch {
-    return "link";
-  }
 }

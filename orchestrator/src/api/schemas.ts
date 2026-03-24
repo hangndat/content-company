@@ -56,6 +56,8 @@ export const runTrendJobBodySchema = z
     domain: z.string().min(1).max(64).optional().default("sports-vn"),
     rawItems: z.array(rawItemSchema),
     channel: channelSchema.optional(),
+    /** Bỏ qua lọc bài đã xử lý trend gần đây (theo bảng crawled_article). */
+    skipArticleDedup: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     const domain = data.domain ?? "sports-vn";
@@ -99,8 +101,20 @@ export const rejectBodySchema = z.object({
   reason: z.string().min(1),
 });
 
+/** Content graph: normalize … decision. Trend graph: normalize, aggregate, embedRefine (shared normalize). */
 export const replayBodySchema = z.object({
-  fromStep: z.enum(["normalize", "planner", "scorer", "writer", "reviewer", "decision"]).optional(),
+  fromStep: z
+    .enum([
+      "normalize",
+      "aggregate",
+      "embedRefine",
+      "planner",
+      "scorer",
+      "writer",
+      "reviewer",
+      "decision",
+    ])
+    .optional(),
 });
 
 export type RunJobBody = z.infer<typeof runJobBodySchema>;

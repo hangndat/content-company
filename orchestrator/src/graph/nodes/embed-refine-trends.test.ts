@@ -39,6 +39,7 @@ describe("refineTrendCandidatesWithEmbeddings", () => {
       sources: ["a", "b"],
       sourceCount: 2,
       itemRefs: ["u1"],
+      sourceArticles: [{ title: "T1", url: "u1" }],
     };
     const c2: TrendCandidate = {
       topic: "Đội tuyển Việt Nam thắng Thái Lan 2-1",
@@ -46,6 +47,7 @@ describe("refineTrendCandidatesWithEmbeddings", () => {
       sources: ["c"],
       sourceCount: 1,
       itemRefs: ["u2"],
+      sourceArticles: [{ title: "T2", url: "u2" }],
     };
     const e1 = [1, 0, 0, 0];
     const e2 = [0.95, 0.05, 0, 0];
@@ -57,6 +59,8 @@ describe("refineTrendCandidatesWithEmbeddings", () => {
     expect(out[0]!.embeddingModel).toBe(opts.embeddingModel);
     expect(out[0]!.embeddingDimensions).toBe(4);
     expect(out[0]!.topicEmbedding).toHaveLength(EMBEDDING_PREVIEW_DIMS);
+    expect(out[0]!.sourceArticles?.map((x) => x.title).sort()).toEqual(["T1", "T2"]);
+    expect(out[0]!.itemRefs.sort()).toEqual(["u1", "u2"]);
   });
 
   it("store off omits topicEmbedding", () => {

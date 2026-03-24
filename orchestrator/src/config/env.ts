@@ -39,6 +39,14 @@ const envSchema = z.object({
     .transform((v) => v === "true" || v === "1"),
   /** Ngưỡng cosine giữa embedding hai title để coi là cùng sự kiện (item-level). */
   TREND_ITEM_COSINE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
+  /** Lưu bài crawl vào DB; lọc bài đã đưa vào trend thành công gần đây. */
+  TREND_CRAWL_DEDUP_ENABLED: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => v === "true" || v === "1"),
+  /** Giờ: trong khoảng này, bài đã `processed_for_trend_at` sẽ không vào trend job mới. */
+  TREND_CRAWL_DEDUP_HOURS: z.coerce.number().int().min(1).max(24 * 365).default(168),
 });
 
 export type Env = z.infer<typeof envSchema>;

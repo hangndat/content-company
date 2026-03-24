@@ -37,6 +37,16 @@ export async function registerJobRoutes(
       ...body,
     });
 
+    if (result.duplicate) {
+      return reply.status(201).send({
+        jobId: result.jobId,
+        traceId: result.traceId,
+        status: result.status,
+        createdAt: result.createdAt,
+        completedAt: result.completedAt,
+      });
+    }
+
     return reply.status(200).send({
       jobId: result.jobId,
       traceId: result.traceId,
@@ -88,10 +98,10 @@ export async function registerJobRoutes(
   });
 
   app.get<{
-    Querystring: { limit?: number; offset?: number; status?: string };
+    Querystring: { limit?: number; offset?: number; status?: string; sourceType?: string };
   }>("/v1/jobs", async (req) => {
-    const { limit, offset, status } = req.query;
-    const result = await jobService.listJobs({ limit, offset, status });
+    const { limit, offset, status, sourceType } = req.query;
+    const result = await jobService.listJobs({ limit, offset, status, sourceType });
     return result;
   });
 
@@ -163,12 +173,34 @@ export async function registerJobRoutes(
           : undefined,
       },
       input: detail.input,
+      approvals: detail.approvals.map((a) => ({
+        id: a.id,
+        action: a.action,
+        actor: a.actor,
+        reason: a.reason,
+        createdAt: a.createdAt,
+      })),
       steps: detail.steps.map((s: JobDetailResult["steps"][number]) => ({
         id: s.id,
         step: s.step,
         createdAt: s.createdAt,
         stateJson: s.stateJson,
       })),
+      contentDraft: detail.contentDraft
+        ? {
+            id: detail.contentDraft.id,
+            outline: detail.contentDraft.outline,
+            body: detail.contentDraft.body,
+            reviewNotes: detail.contentDraft.reviewNotes,
+            decision: detail.contentDraft.decision,
+            scores: {
+              topicScore: detail.contentDraft.topicScore,
+              reviewScore: detail.contentDraft.reviewScore,
+            },
+            createdAt: detail.contentDraft.createdAt,
+            updatedAt: detail.contentDraft.updatedAt,
+          }
+        : null,
     };
   });
 

@@ -62,7 +62,9 @@ export function useJobDetail(id: string | undefined) {
         await jobService.replayJob(id, fromStep ? { fromStep } : undefined);
         await load();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to replay");
+        const msg = e instanceof Error ? e.message : "Failed to replay";
+        setError(msg);
+        throw e;
       }
     },
     [id, load]

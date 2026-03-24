@@ -132,7 +132,7 @@ admin/src/
 ├── index.css
 ├── app/
 │   ├── App.tsx              # Providers, ProLayout, Suspense, global modals
-│   └── opsLazyRoutes.tsx    # Lazy pages + OPS_NAV_ITEMS / opsProLayoutRoute
+│   └── opsLazyRoutes.tsx    # Lazy pages + opsProLayoutRoute (menu nhóm Trend & crawl)
 ├── lib/
 │   └── api.ts               # fetchApi, fetchPost, api.*
 ├── features/ops/
@@ -433,7 +433,7 @@ Chi tiết: [docs/api.md](api.md).
 | LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY | Bật trace OpenAI qua Langfuse SDK (`observeOpenAI`) | optional |
 | LANGFUSE_HOST | Base URL Langfuse **API** (ingestion/SDK), **không** dùng tên `LANGFUSE_BASE_URL` trong code | `https://cloud.langfuse.com` |
 | LANGFUSE_UI_PUBLIC_URL | URL UI mở trong browser từ Admin (khi `LANGFUSE_HOST` chỉ reachable nội bộ, ví dụ Docker network) | = `LANGFUSE_HOST` |
-| USE_QUEUE | 1=true: dùng BullMQ | 0 |
+| USE_QUEUE | 1=true: API enqueue BullMQ, worker chạy graph (cần `dev:worker` / `dev:full:queue`) | Code default 0; `.env.example` = 1 |
 
 ### 7.2 Admin (admin/.env)
 
@@ -484,9 +484,11 @@ Admin đọc trạng thái Langfuse qua `GET /v1/settings/observability` (Bearer
 |--------|-------|
 | `npm run dev` | Orchestrator (tsx watch) |
 | `npm run dev:admin` | Admin UI (Vite, port 5174) |
-| `npm run dev:full` | Cả orchestrator + admin |
+| `npm run dev:full` | Orchestrator + admin (dùng khi `USE_QUEUE=0` hoặc đã chạy worker riêng) |
+| `npm run dev:full:queue` | Orchestrator + worker + admin (khuyến nghị khi `USE_QUEUE=1`) |
+| `npm run dev:queue` | Orchestrator + worker |
 | `npm run dev:api` | Orchestrator (alias) |
-| `npm run dev:worker` | BullMQ worker (USE_QUEUE=1) |
+| `npm run dev:worker` | BullMQ worker (`USE_QUEUE=1`) |
 | `npm run langfuse:up` | Langfuse Docker stack (`--env-file .env.langfuse`) |
 | `npm run langfuse:down` | Dừng Langfuse, giữ volume |
 | `npm run langfuse:reset` | `down -v` Langfuse — xóa data |
@@ -626,6 +628,20 @@ Chi tiết: [docs/ab-testing-design.md](ab-testing-design.md).
 3. **Scorer**: N<3 → reference only; 3–10 → light boost; N≥10 → full boost
 4. **topicKey/topicSignature**: stable across wording
 
+### 11.1 Trend job (`sourceType: trend_aggregate`)
+
+- **Crawl / dedup**: Mỗi lần `POST /v1/jobs/trend/run`, toàn bộ `rawItems` được **upsert** vào `crawled_article`. **GET `/v1/crawled-articles`** (query: `domain`, `q`, `processed=all|yes|no`, `limit`, `offset`) cho admin. (khóa `dedupe_key` = hash `domain+URL` hoặc `domain+title+đoạn body` nếu không có URL). Trước khi chạy graph, các bài đã có `processed_for_trend_at` trong **`TREND_CRAWL_DEDUP_HOURS`** (mặc định 168h) bị **loại khỏi batch** (tránh process trùng). Tắt hành vi: env `TREND_CRAWL_DEDUP_ENABLED=0` hoặc body `skipArticleDedup: true`. Sau khi trend **completed**, mỗi bài trong `normalizedItems` được cập nhật `processed_for_trend_at`.
+- **Idempotency-Key** (header): Giống content job — trùng key trả về **201** với job đã có (completed) hoặc redis trỏ tới job trước đó.
+- **Graph**: `normalize` → `aggregate` (Jaccard / clustering) → `embedRefine` (embedding + refine). Mỗi bước ghi `JobStateSnapshot` giống content graph.
+- **Replay từ bước giữa**: `POST /v1/jobs/:jobId/replay` với body `{ "fromStep": "aggregate" }` hoặc `"embedRefine"`. Bỏ qua / dùng `"normalize"` để chạy lại từ đầu. Orchestrator hydrate state từ snapshot của bước liền trước (`trend-runner.ts`).
+- **Cross-job topic library**: Bảng `trend_topic_observation` lưu fingerprint (domain + title chuẩn hoá) mỗi khi trend job **hoàn thành**; API `GET /v1/trend-topics?domain=&limit=&offset=` để admin duyệt lịch sử.
+- **Admin job detail**: `seenBefore` trên từng candidate = đã có observation cùng fingerprint từ **job khác** trước khi xem.
+
+### 11.2 Content từ output trend
+
+- `POST /v1/jobs/content/run` với `sourceType: "trend"`, `trendJobId` (UUID job `trend_aggregate` đã xong), tuỳ chọn `topicIndex` (0-based) để chỉ lấy **một** candidate; bỏ `topicIndex` thì raw items = tất cả candidate (map trong `resolveRawItemsFromTrendJob`).
+- **Bulk (n8n/script)**: lặp `topicIndex = 0..N-1` hoặc một lần không gửi `topicIndex` tùy nghiệp vụ.
+
 ---
 
 ## 12. Publish Safety
@@ -637,7 +653,7 @@ Chi tiết: [docs/ab-testing-design.md](ab-testing-design.md).
 
 ---
 
-## 13. Tài liệu liên quan
+## 14. Tài liệu liên quan
 
 | Document | Mô tả |
 |----------|-------|

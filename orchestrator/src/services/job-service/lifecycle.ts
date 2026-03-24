@@ -70,7 +70,8 @@ export async function replayJob(
           rawItems,
           channel,
         },
-        { db, redis, logger, env }
+        { db, redis, logger, env },
+        fromStep
       );
     } else {
       const body: RunJobBody = {

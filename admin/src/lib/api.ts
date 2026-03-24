@@ -23,8 +23,10 @@ import type {
   ApproveJobResponse,
   RejectJobResponse,
   PublishedListResponse,
+  TrendCandidate,
 } from "@/features/ops/models/job";
 import type { AgentIoFeedResult } from "@/features/ops/models/agent-io";
+import type { ContentDraftsListResponse } from "@/features/ops/models/content-draft";
 
 const API_BASE = "/v1";
 
@@ -101,10 +103,17 @@ export const api = {
   experiment: (id: string) => fetchApi<ExperimentMeta>(`/experiments/${id}`),
   experimentReport: (id: string, days?: number) =>
     fetchApi<ExperimentReport>(`/experiments/${id}/report`, days ? { days } : undefined),
-  jobs: (p?: { limit?: number; offset?: number; status?: string }) =>
+  jobs: (p?: { limit?: number; offset?: number; status?: string; sourceType?: string }) =>
     fetchApi<JobsListResponse>(`/jobs`, p as Record<string, string | number>),
   job: (id: string) => fetchApi<JobSummaryResponse>(`/jobs/${id}`),
   jobDetail: (id: string) => fetchApi<JobDetailResponse>(`/jobs/${id}/detail`),
+  contentDrafts: (p?: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+    sourceType?: string;
+    jobId?: string;
+  }) => fetchApi<ContentDraftsListResponse>(`/content-drafts`, p as Record<string, string | number>),
   approveJob: (id: string, body: { actor: string; reason?: string }) =>
     fetchPost<ApproveJobResponse>(`/jobs/${id}/approve`, body),
   rejectJob: (id: string, body: { actor: string; reason: string }) =>
@@ -117,14 +126,67 @@ export const api = {
   promoteExperiment: (id: string, body?: { armId?: string }) =>
     fetchPost<ExperimentPromoteResponse>(`/experiments/${id}/promote`, body ?? undefined),
   runJob: (body: {
-    sourceType: "rss" | "webhook" | "manual" | "api";
-    rawItems: Array<{ title: string; body?: string; url?: string }>;
+    sourceType: "rss" | "webhook" | "manual" | "api" | "trend";
+    rawItems?: Array<{ title: string; body?: string; url?: string }>;
+    trendJobId?: string;
+    topicIndex?: number;
     publishPolicy: "auto" | "review_only" | "manual_only";
     channel: { id: string; type: "blog" | "social" | "affiliate"; metadata?: Record<string, unknown> };
     topicHint?: string;
   }) => fetchPost<RunJobApiResponse>(`/jobs/content/run`, body),
+  trendTopics: (p?: { domain?: string; limit?: number; offset?: number }) =>
+    fetchApi<{
+      items: Array<{
+        id: string;
+        fingerprint: string;
+        trendDomain: string;
+        sourceJobId: string;
+        candidateIndex: number;
+        topicTitle: string;
+        createdAt: string;
+        articleCount: number;
+      }>;
+      total: number;
+    }>(`/trend-topics`, p as Record<string, string | number>),
+  trendTopic: (id: string) =>
+    fetchApi<{
+      observation: {
+        id: string;
+        fingerprint: string;
+        trendDomain: string;
+        sourceJobId: string;
+        candidateIndex: number;
+        topicTitle: string;
+        createdAt: string;
+      };
+      job: { id: string; status: string; completedAt: string | null };
+      candidate: TrendCandidate | null;
+    }>(`/trend-topics/${id}`),
+  crawledArticles: (p?: {
+    domain?: string;
+    q?: string;
+    processed?: "all" | "yes" | "no";
+    limit?: number;
+    offset?: number;
+  }) =>
+    fetchApi<{
+      items: Array<{
+        id: string;
+        dedupeKey: string;
+        trendDomain: string;
+        url: string | null;
+        title: string;
+        bodyPreview: string | null;
+        sourceId: string | null;
+        firstSeenAt: string;
+        lastSeenAt: string;
+        processedForTrendAt: string | null;
+      }>;
+      total: number;
+    }>(`/crawled-articles`, p as Record<string, string | number>),
   runTrendJob: (body: {
     domain?: string;
+    skipArticleDedup?: boolean;
     rawItems: Array<{
       title: string;
       body?: string;

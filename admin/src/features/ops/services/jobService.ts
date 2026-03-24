@@ -1,7 +1,8 @@
 import { api } from "@/lib/api";
 
 export const jobService = {
-  listJobs: (params?: { limit?: number; offset?: number; status?: string }) => api.jobs(params),
+  listJobs: (params?: { limit?: number; offset?: number; status?: string; sourceType?: string }) =>
+    api.jobs(params),
 
   getJobDetail: (id: string) => api.jobDetail(id),
 

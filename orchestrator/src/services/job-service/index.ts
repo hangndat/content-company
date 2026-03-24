@@ -34,7 +34,7 @@ export function createJobService(deps: JobServiceDeps): JobService {
   const dedupe = createDedupe(redis, REDIS_TTL.SOURCE_DEDUPE);
   const useQueue = Boolean(env.USE_QUEUE && jobQueue);
 
-  const readCtx = { db, jobRepo, snapshotRepo };
+  const readCtx = { db, jobRepo, snapshotRepo, approvalRepo };
   const trendCtx = { db, redis, logger, env, jobRepo, lock, idempotency };
   const contentCtx = {
     db,

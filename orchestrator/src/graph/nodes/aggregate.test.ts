@@ -33,5 +33,7 @@ describe("groupsToTrendCandidates", () => {
     expect(c).toHaveLength(1);
     expect(c[0]!.sourceCount).toBe(2);
     expect(c[0]!.sources).toEqual(["s1", "s2"]);
+    expect(c[0]!.sourceArticles).toHaveLength(2);
+    expect(c[0]!.sourceArticles?.map((x) => x.title)).toEqual(["same story", "same story paraphrase"]);
   });
 });
