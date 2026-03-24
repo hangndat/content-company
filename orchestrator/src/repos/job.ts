@@ -1,6 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
 import type { Decimal } from "@prisma/client/runtime/library";
 import { JOB_STATUS } from "../config/constants.js";
+import type { TrendCandidate } from "../trends/trend-candidate.js";
+
+export type { TrendCandidate };
 
 export type CreateJobInput = {
   id: string;
@@ -22,14 +25,6 @@ export type UpdateJobStatusInput = {
   topicScore?: number;
   reviewScore?: number;
   completedAt?: Date;
-};
-
-export type TrendCandidate = {
-  topic: string;
-  aggregatedBody: string;
-  sources: string[];
-  sourceCount: number;
-  itemRefs: string[];
 };
 
 export type CreateJobOutputInput = {

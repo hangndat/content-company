@@ -1,16 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
-import { getDashboardSummary } from "../../dashboard/summary.js";
-import { getJobTrends } from "../../dashboard/job-trends.js";
-import { getPublishMetrics } from "../../dashboard/publish.js";
-import { getTopicPerformance } from "../../dashboard/topics.js";
-import { getChannelPerformance } from "../../dashboard/channels.js";
+import { getDashboardSummary } from "../../dashboard/queries/summary.js";
+import { getJobTrends } from "../../dashboard/queries/job-trends.js";
+import { getPublishMetrics } from "../../dashboard/queries/publish.js";
+import { getTopicPerformance } from "../../dashboard/queries/topics.js";
+import { getChannelPerformance } from "../../dashboard/queries/channels.js";
 import {
   getPromptPerformance,
   getPromptVersionsDetail,
-} from "../../dashboard/prompts.js";
-import { getExperimentsOverview } from "../../dashboard/experiments-overview.js";
+} from "../../dashboard/queries/prompts.js";
+import { getExperimentsOverview } from "../../dashboard/queries/experiments-overview.js";
+import { getAgentIoFeed } from "../../dashboard/queries/agent-io.js";
 import type { JobQueueService } from "../../services/job-queue.js";
 import { ERROR_CODES, formatErrorResponse } from "../middleware/error.js";
 
@@ -64,6 +65,12 @@ const experimentsQuerySchema = z.object({
   status: z.string().optional(),
   nodeType: z.string().optional(),
   scope: z.string().optional(),
+});
+
+const agentIoQuerySchema = z.object({
+  step: z.enum(["planner", "scorer", "writer", "reviewer"]),
+  days: z.coerce.number().int().min(1).max(90).optional().default(7),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(40),
 });
 
 export async function registerDashboardRoutes(
@@ -230,6 +237,21 @@ export async function registerDashboardRoutes(
       );
     }
     const result = await getExperimentsOverview(db, parsed.data);
+    return result;
+  });
+
+  app.get("/v1/dashboard/agent-io", async (req, reply) => {
+    const parsed = agentIoQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send(
+        formatErrorResponse(
+          ERROR_CODES.VALIDATION_ERROR,
+          "Invalid query params",
+          parsed.error.flatten()
+        )
+      );
+    }
+    const result = await getAgentIoFeed(db, parsed.data);
     return result;
   });
 }

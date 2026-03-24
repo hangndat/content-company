@@ -21,6 +21,8 @@ const STATUS_COLOR_MAP: Record<string, string> = {
   APPROVED: "green",
   REVIEW_REQUIRED: "orange",
   REJECTED: "red",
+  // Publish / posts
+  published: "green",
 };
 
 export function getStatusTagColor(

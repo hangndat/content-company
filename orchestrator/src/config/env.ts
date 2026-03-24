@@ -20,6 +20,25 @@ const envSchema = z.object({
     .optional()
     .transform((v) => v === "1" || v === "true")
     .default("false"),
+  /** When true, run embedding merge + metadata after trend aggregate. */
+  TREND_EMBEDDING_REFINE: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => v === "true" || v === "1"),
+  TREND_EMBEDDING_MERGE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.85),
+  TREND_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  TREND_EMBEDDING_STORE: z.enum(["off", "preview", "full"]).default("preview"),
+  /** Số nguồn khác nhau tối thiểu trong một cluster (2 = chỉ trend đa nguồn / đa bài cùng ý). */
+  TREND_MIN_SOURCES: z.coerce.number().int().min(1).max(20).default(2),
+  /** Gom bài theo embedding title + Jaccard (tắt = chỉ Jaccard). */
+  TREND_ITEM_SEMANTIC_CLUSTER: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => v === "true" || v === "1"),
+  /** Ngưỡng cosine giữa embedding hai title để coi là cùng sự kiện (item-level). */
+  TREND_ITEM_COSINE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
 });
 
 export type Env = z.infer<typeof envSchema>;

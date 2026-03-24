@@ -1,14 +1,36 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
 }
 
+/* Readable content width on large screens */
+.app-page-container .ant-pro-page-container-children-container {
+  max-width: 1400px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* Responsive: reduce padding on mobile */
 @media (max-width: 768px) {
+  /* ProLayout: header actions wrap / shrink instead of overflowing */
+  .ant-pro-layout .ant-pro-global-header-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 6px;
+    max-width: min(100%, calc(100vw - 120px));
+    min-width: 0;
+  }
+  .app-header-run-actions.ant-space {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 4px;
+  }
   .ant-pro-page-container,
   .ant-pro-page-container-children-content,
   .ant-pro-layout-content,

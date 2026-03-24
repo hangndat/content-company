@@ -10,6 +10,7 @@ import { createJobRepo } from "../repos/job.js";
 import { createContentVersionRepo } from "../repos/content-version.js";
 import { createJobSnapshotRepo } from "../repos/job-snapshot.js";
 import { JOB_STATUS, DECISION } from "../config/constants.js";
+import { runStepsWithSnapshots } from "./run-steps-with-snapshots.js";
 
 const STEPS = ["normalize", "planner", "scorer", "writer", "reviewer", "decision"] as const;
 
@@ -101,58 +102,64 @@ export async function runGraph(
   const stepsToRun = STEPS.slice(startIdx);
 
   try {
-    for (const step of stepsToRun) {
-      logger.info({ jobId: input.jobId, step }, "Graph step");
-      let delta: Partial<GraphState> = {};
+    state = await runStepsWithSnapshots({
+      jobId: input.jobId,
+      logger,
+      logLabel: "Graph step",
+      steps: stepsToRun,
+      initialState: state,
+      onStep: async (step, prev) => {
+        let delta: Partial<GraphState> = {};
 
-      switch (step) {
-        case "normalize":
-          delta = normalize(state);
-          break;
-        case "planner":
-          if (state.normalizedItems.length === 0) {
-            delta = { decision: "REJECTED" };
+        switch (step) {
+          case "normalize":
+            delta = normalize(prev);
             break;
-          }
-          delta = await planner(state, deps as GraphContext);
-          break;
-        case "scorer":
-          delta = await scorer(state, deps as GraphContext);
-          break;
-        case "writer":
-          delta = await writer(state, deps as GraphContext);
-          break;
-        case "reviewer":
-          delta = await reviewer(state, deps as GraphContext);
-          break;
-        case "decision":
-          delta = decisionNode(state);
-          break;
-      }
+          case "planner":
+            if (prev.normalizedItems.length === 0) {
+              delta = { decision: "REJECTED" };
+              break;
+            }
+            delta = await planner(prev, deps as GraphContext);
+            break;
+          case "scorer":
+            delta = await scorer(prev, deps as GraphContext);
+            break;
+          case "writer":
+            delta = await writer(prev, deps as GraphContext);
+            break;
+          case "reviewer":
+            delta = await reviewer(prev, deps as GraphContext);
+            break;
+          case "decision":
+            delta = decisionNode(prev);
+            break;
+        }
 
-      state = {
-        ...state,
-        ...delta,
-        promptVersions: {
-          ...state.promptVersions,
-          ...(delta.promptVersions ?? {}),
-        },
-        experimentAssignments: {
-          ...state.experimentAssignments,
-          ...(delta.experimentAssignments ?? {}),
-        },
-      };
+        const next: GraphState = {
+          ...prev,
+          ...delta,
+          promptVersions: {
+            ...prev.promptVersions,
+            ...(delta.promptVersions ?? {}),
+          },
+          experimentAssignments: {
+            ...prev.experimentAssignments,
+            ...(delta.experimentAssignments ?? {}),
+          },
+        };
 
-      await snapshotRepo.create({
-        jobId: input.jobId,
-        step,
-        stateJson: stateToJson(state),
-      });
-
-      if (state.decision === "REJECTED" && step !== "decision") {
-        break;
-      }
-    }
+        const done = next.decision === "REJECTED" && step !== "decision";
+        return { next, done };
+      },
+      persistSnapshot: async (step, s) => {
+        await snapshotRepo.create({
+          jobId: input.jobId,
+          step,
+          stateJson: stateToJson(s),
+        });
+      },
+    });
 
     const decision = state.decision ?? "REVIEW_REQUIRED";
     const nextVersion = await contentVersionRepo.getNextVersion(input.jobId);

@@ -2,12 +2,15 @@ import type { GraphState } from "./types.js";
 import { DEFAULT_TREND_DOMAIN } from "../trends/domain-profiles.js";
 import type { RunTrendJobBody } from "../api/schemas.js";
 import { normalize } from "./nodes/normalize.js";
-import { aggregate } from "./nodes/aggregate.js";
+import { aggregateTrendsAsync } from "./nodes/aggregate.js";
+import { embedRefineTrends } from "./nodes/embed-refine-trends.js";
 import { createJobRepo } from "../repos/job.js";
 import { createJobSnapshotRepo } from "../repos/job-snapshot.js";
 import { JOB_STATUS } from "../config/constants.js";
+import type { TrendCandidate } from "../trends/trend-candidate.js";
+import { runStepsWithSnapshots } from "./run-steps-with-snapshots.js";
 
-const STEPS = ["normalize", "aggregate"] as const;
+const STEPS = ["normalize", "aggregate", "embedRefine"] as const;
 
 export type RunTrendGraphInput = RunTrendJobBody & {
   jobId: string;
@@ -21,7 +24,9 @@ export type RunTrendGraphDeps = {
   env: import("../config/env.js").Env;
 };
 
-function stateToJson(state: GraphState & { trendCandidates?: unknown[] }): object {
+type TrendGraphState = GraphState & { trendCandidates?: TrendCandidate[] };
+
+function stateToJson(state: TrendGraphState): object {
   return {
     jobId: state.jobId,
     traceId: state.traceId,
@@ -30,7 +35,7 @@ function stateToJson(state: GraphState & { trendCandidates?: unknown[] }): objec
     rawItems: state.rawItems,
     channel: state.channel,
     normalizedItems: state.normalizedItems,
-    trendCandidates: (state as { trendCandidates?: unknown[] }).trendCandidates,
+    trendCandidates: state.trendCandidates,
   };
 }
 
@@ -38,14 +43,14 @@ export async function runTrendGraph(
   input: RunTrendGraphInput,
   deps: RunTrendGraphDeps
 ): Promise<void> {
-  const { db, logger } = deps;
+  const { db, logger, env } = deps;
   const jobRepo = createJobRepo(db);
   const snapshotRepo = createJobSnapshotRepo(db);
 
   const job = await jobRepo.findById(input.jobId);
   const retryCount = job?.retryCount ?? 0;
 
-  let state: GraphState & { trendCandidates?: unknown[] } = {
+  let state: TrendGraphState = {
     jobId: input.jobId,
     traceId: input.traceId,
     sourceType: "trend_aggregate",
@@ -58,34 +63,45 @@ export async function runTrendGraph(
   };
 
   try {
-    for (const step of STEPS) {
-      logger.info({ jobId: input.jobId, step }, "Trend graph step");
-      let delta: Partial<GraphState & { trendCandidates?: unknown[] }> = {};
+    state = await runStepsWithSnapshots({
+      jobId: input.jobId,
+      logger,
+      logLabel: "Trend graph step",
+      steps: STEPS,
+      initialState: state,
+      onStep: async (step, prev) => {
+        let delta: Partial<TrendGraphState> = {};
 
-      switch (step) {
-        case "normalize":
-          delta = normalize(state);
-          if ((delta as { decision?: string }).decision === "REJECTED") {
-            delta = { ...delta, trendCandidates: [] };
-          }
-          break;
-        case "aggregate":
-          delta = aggregate(state);
-          break;
-      }
+        switch (step) {
+          case "normalize":
+            delta = normalize(prev);
+            if ((delta as { decision?: string }).decision === "REJECTED") {
+              delta = { ...delta, trendCandidates: [] };
+            }
+            break;
+          case "aggregate":
+            delta = await aggregateTrendsAsync(prev, { env, logger });
+            break;
+          case "embedRefine":
+            delta = await embedRefineTrends(prev, { logger, env });
+            break;
+        }
 
-      state = { ...state, ...delta };
-
-      await snapshotRepo.create({
-        jobId: input.jobId,
-        step,
-        stateJson: stateToJson(state),
-      });
-    }
+        const next = { ...prev, ...delta };
+        return { next };
+      },
+      persistSnapshot: async (step, s) => {
+        await snapshotRepo.create({
+          jobId: input.jobId,
+          step,
+          stateJson: stateToJson(s),
+        });
+      },
+    });
 
     await jobRepo.upsertOutput({
       jobId: input.jobId,
-      trendCandidates: (state.trendCandidates ?? []) as import("../repos/job.js").TrendCandidate[],
+      trendCandidates: state.trendCandidates ?? [],
     });
     await jobRepo.updateStatus(input.jobId, {
       status: JOB_STATUS.COMPLETED,

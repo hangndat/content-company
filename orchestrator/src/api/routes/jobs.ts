@@ -7,7 +7,7 @@ import {
 } from "../schemas.js";
 import { getTraceContext } from "../middleware/trace.js";
 import { ERROR_CODES, formatErrorResponse } from "../middleware/error.js";
-import type { JobService } from "../../services/job.js";
+import type { JobDetailResult, JobService } from "../../services/job.js";
 
 export async function registerJobRoutes(
   app: FastifyInstance,
@@ -163,7 +163,7 @@ export async function registerJobRoutes(
           : undefined,
       },
       input: detail.input,
-      steps: detail.steps.map((s) => ({
+      steps: detail.steps.map((s: JobDetailResult["steps"][number]) => ({
         id: s.id,
         step: s.step,
         createdAt: s.createdAt,

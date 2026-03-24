@@ -129,18 +129,28 @@ orchestrator/src/
 ```
 admin/src/
 ├── main.tsx
-├── App.tsx                  # Layout, routes
-├── api.ts                   # fetchApi, fetchPost, api.*
-├── modules/ops/
+├── index.css
+├── app/
+│   ├── App.tsx              # Providers, ProLayout, Suspense, global modals
+│   └── opsLazyRoutes.tsx    # Lazy pages + OPS_NAV_ITEMS / opsProLayoutRoute
+├── lib/
+│   └── api.ts               # fetchApi, fetchPost, api.*
+├── features/ops/
 │   ├── pages/               # OpsDashboardPage, JobsListPage, JobDetailPage, etc.
 │   ├── components/          # JobStepsTimeline, ExperimentTable, etc.
 │   ├── hooks/               # useJobDetail, useDashboardData, etc.
 │   ├── services/            # jobService, experimentService, dashboardService
-│   └── models/              # job.ts, experiment.ts, dashboard.ts
+│   ├── models/              # job.ts, experiment.ts, dashboard.ts
+│   ├── utils/
+│   └── constants/
 └── shared/
+    ├── components/
+    ├── hooks/
     ├── constants/status.ts
     └── utils/
 ```
+
+**Import (admin):** alias `@/` → `src/` (Vite + `tsconfig`). Nên dùng `@/shared/…`, `@/lib/api`, `@/features/ops/…` cho code trong feature ops; giữ `./` cho file cùng thư mục (vd. component lân cận).
 
 ### 2.4 Langfuse (LLM observability)
 
@@ -168,7 +178,7 @@ Planner / Scorer / Writer / Reviewer
 
 **Admin**
 
-- `admin/src/modules/ops/components/LangfuseObservabilityCard.tsx` — gọi `api.observability({ days })`, hiển thị trên Ops Dashboard & Settings.
+- `admin/src/features/ops/components/LangfuseObservabilityCard.tsx` — gọi `api.observability({ days })` từ `admin/src/lib/api.ts`, hiển thị trên Ops Dashboard & Settings.
 
 **Self-host Docker** (repo)
 

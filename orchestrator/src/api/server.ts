@@ -57,7 +57,7 @@ export async function createServer(deps: ServerDeps) {
   await registerPublishCallbackRoute(app, { db: deps.db });
   await registerAcquirePublishSlotRoute(app, { db: deps.db, redis: deps.redis });
   await registerMetricsRecordRoute(app, { db: deps.db });
-  await registerPromptVersionRoutes(app, { db: deps.db });
+  await registerPromptVersionRoutes(app, { db: deps.db, logger: deps.logger, env: deps.env });
   await registerMetricsRoutes(app, { db: deps.db });
   await registerAggregateMetricsRoute(app, { db: deps.db, logger: deps.logger });
   await registerExperimentRoutes(app, { db: deps.db });

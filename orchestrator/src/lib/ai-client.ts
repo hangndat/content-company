@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { observeOpenAI } from "langfuse";
 import type { Env } from "../config/env.js";
+import { flushOpenAITracedClient } from "./openai-langfuse-flush.js";
 
 let openaiSingleton: OpenAI | null = null;
 
@@ -35,13 +36,6 @@ function createChatClient(apiKey: string, env: Env, meta?: CallAIMeta): OpenAI {
       baseUrl: env.LANGFUSE_HOST,
     },
   });
-}
-
-async function flushIfObserved(client: OpenAI): Promise<void> {
-  const maybe = client as OpenAI & { flushAsync?: () => Promise<void> };
-  if (typeof maybe.flushAsync === "function") {
-    await maybe.flushAsync().catch(() => undefined);
-  }
 }
 
 export async function callAI(
@@ -85,6 +79,6 @@ export async function callAI(
 
     throw lastErr ?? new Error("AI call failed");
   } finally {
-    await flushIfObserved(client);
+    await flushOpenAITracedClient(client);
   }
 }
