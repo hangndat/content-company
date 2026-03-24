@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import { BrowserRouter, Link, useLocation } from "react-router-dom";
 import {
   ProLayout,
@@ -8,19 +8,13 @@ import {
 } from "@ant-design/pro-components";
 import {
   App as AntdApp,
-  Button,
   ConfigProvider,
   FloatButton,
-  Grid,
-  Space,
-  Tooltip,
   theme as antdTheme,
 } from "antd";
 import type { ThemeConfig } from "antd/es/config-provider/context";
 import viVN from "antd/locale/vi_VN";
-import { ThunderboltOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
-import { RunJobModal } from "@/features/ops/components/RunJobModal";
-import { RunTrendJobModal } from "@/features/ops/components/RunTrendJobModal";
+import { VerticalAlignTopOutlined } from "@ant-design/icons";
 import { AppLogo } from "@/shared/components/AppLogo";
 import { PageCenteredSpin } from "@/shared/components/PageCenteredSpin";
 import { PageShell } from "@/shared/components/PageShell";
@@ -60,40 +54,6 @@ const appTheme: ThemeConfig = {
 
 function LayoutContent() {
   const location = useLocation();
-  const screens = Grid.useBreakpoint();
-  /** ProLayout header right area is tight; long labels overflow below md (~768px). */
-  const compactHeaderActions = screens.md !== true;
-  const [runJobModalOpen, setRunJobModalOpen] = useState(false);
-  const [runTrendModalOpen, setRunTrendModalOpen] = useState(false);
-
-  const runPipelineButton = compactHeaderActions ? (
-    <Tooltip title="Chạy pipeline nội dung">
-      <Button
-        type="primary"
-        icon={<ThunderboltOutlined />}
-        onClick={() => setRunJobModalOpen(true)}
-        aria-label="Chạy pipeline nội dung"
-      />
-    </Tooltip>
-  ) : (
-    <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => setRunJobModalOpen(true)}>
-      Chạy pipeline nội dung
-    </Button>
-  );
-
-  const runTrendButton = compactHeaderActions ? (
-    <Tooltip title="Chạy trend">
-      <Button
-        icon={<ThunderboltOutlined />}
-        onClick={() => setRunTrendModalOpen(true)}
-        aria-label="Chạy trend"
-      />
-    </Tooltip>
-  ) : (
-    <Button icon={<ThunderboltOutlined />} onClick={() => setRunTrendModalOpen(true)}>
-      Chạy trend
-    </Button>
-  );
 
   return (
     <>
@@ -118,12 +78,6 @@ function LayoutContent() {
           src: undefined,
           title: "Quản trị",
         }}
-        actionsRender={() => [
-          <Space key="run-actions" size={compactHeaderActions ? 6 : "small"} wrap className="app-header-run-actions">
-            {runPipelineButton}
-            {runTrendButton}
-          </Space>,
-        ]}
         footerRender={() => (
           <div
             style={{
@@ -152,8 +106,6 @@ function LayoutContent() {
         </PageContainer>
       </ProLayout>
       <FloatButton.BackTop type="default" icon={<VerticalAlignTopOutlined />} />
-      <RunJobModal open={runJobModalOpen} onClose={() => setRunJobModalOpen(false)} />
-      <RunTrendJobModal open={runTrendModalOpen} onClose={() => setRunTrendModalOpen(false)} />
     </>
   );
 }

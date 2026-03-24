@@ -25,6 +25,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { Logger } from "pino";
 import type { Env } from "../config/env.js";
 import { registerObservabilityRoutes } from "./routes/observability.js";
+import { createRepos } from "../repos/index.js";
 
 export type ServerDeps = {
   redis: Redis;
@@ -37,6 +38,8 @@ export type ServerDeps = {
 };
 
 export async function createServer(deps: ServerDeps) {
+  const repos = createRepos(deps.db);
+
   const app = Fastify({
     loggerInstance: deps.logger.child({ module: "http" }),
     bodyLimit: 10 * 1024 * 1024, // 10MB for trend job with many RSS items
@@ -57,18 +60,33 @@ export async function createServer(deps: ServerDeps) {
   await registerHealthRoutes(app, { redis: deps.redis, db: deps.db });
   await registerJobRoutes(app, { jobService: deps.jobService });
   await registerApprovalRoutes(app, { jobService: deps.jobService });
-  await registerPublishCallbackRoute(app, { db: deps.db });
-  await registerAcquirePublishSlotRoute(app, { db: deps.db, redis: deps.redis });
-  await registerMetricsRecordRoute(app, { db: deps.db });
-  await registerPromptVersionRoutes(app, { db: deps.db, logger: deps.logger, env: deps.env });
-  await registerMetricsRoutes(app, { db: deps.db });
+  await registerPublishCallbackRoute(app, { publishedRepo: repos.published });
+  await registerAcquirePublishSlotRoute(app, {
+    redis: deps.redis,
+    jobRepo: repos.job,
+    publishedRepo: repos.published,
+  });
+  await registerMetricsRecordRoute(app, {
+    jobRepo: repos.job,
+    contentMetricRepo: repos.contentMetric,
+  });
+  await registerPromptVersionRoutes(app, {
+    promptVersionRepo: repos.promptVersion,
+    db: deps.db,
+    logger: deps.logger,
+    env: deps.env,
+  });
+  await registerMetricsRoutes(app, { jobRepo: repos.job });
   await registerAggregateMetricsRoute(app, { db: deps.db, logger: deps.logger });
-  await registerExperimentRoutes(app, { db: deps.db });
+  await registerExperimentRoutes(app, {
+    experimentRepo: repos.experiment,
+    promptVersionRepo: repos.promptVersion,
+  });
   await registerDashboardRoutes(app, { db: deps.db, jobQueue: deps.jobQueue });
-  await registerPublishedRoutes(app, { db: deps.db });
-  await registerTrendTopicsRoutes(app, { db: deps.db });
-  await registerCrawledArticlesRoutes(app, { db: deps.db });
-  await registerContentDraftRoutes(app, { db: deps.db });
+  await registerPublishedRoutes(app, { publishedRepo: repos.published });
+  await registerTrendTopicsRoutes(app, { trendTopicObservationRepo: repos.trendTopicObservation });
+  await registerCrawledArticlesRoutes(app, { crawledArticleRepo: repos.crawledArticle });
+  await registerContentDraftRoutes(app, { contentDraftRepo: repos.contentDraft });
   await registerObservabilityRoutes(app, deps.env);
 
   return app;

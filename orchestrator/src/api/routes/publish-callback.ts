@@ -1,12 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import type { PrismaClient } from "@prisma/client";
-import { createPublishedRepo } from "../../repos/published.js";
+import type { createPublishedRepo } from "../../repos/published.js";
 
 export async function registerPublishCallbackRoute(
   app: FastifyInstance,
-  deps: { db: PrismaClient }
+  deps: { publishedRepo: ReturnType<typeof createPublishedRepo> }
 ) {
-  const publishedRepo = createPublishedRepo(deps.db);
+  const { publishedRepo } = deps;
 
   app.post<{
     Params: { jobId: string };

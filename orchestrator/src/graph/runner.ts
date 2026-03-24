@@ -12,6 +12,7 @@ import { createContentDraftRepo } from "../repos/content-draft.js";
 import { createJobSnapshotRepo } from "../repos/job-snapshot.js";
 import { JOB_STATUS, DECISION } from "../config/constants.js";
 import { runStepsWithSnapshots } from "./run-steps-with-snapshots.js";
+import { hydrateContentStateFromSnapshot } from "./hydrate-content-state.js";
 
 const STEPS = ["normalize", "planner", "scorer", "writer", "reviewer", "decision"] as const;
 
@@ -84,21 +85,8 @@ export async function runGraph(
     const latest = prevStep
       ? await snapshotRepo.getByStep(input.jobId, prevStep)
       : null;
-    if (latest && latest.stateJson && typeof latest.stateJson === "object") {
-      const snapped = latest.stateJson as Record<string, unknown>;
-      state = {
-        ...state,
-        normalizedItems: (snapped.normalizedItems as GraphState["normalizedItems"]) ?? state.normalizedItems,
-        outline: (snapped.outline as string) ?? state.outline,
-        topicScore: (snapped.topicScore as number) ?? state.topicScore,
-        draft: (snapped.draft as string) ?? state.draft,
-        reviewScore: (snapped.reviewScore as number) ?? state.reviewScore,
-        reviewNotes: (snapped.reviewNotes as string) ?? state.reviewNotes,
-        riskFlag: (snapped.riskFlag as boolean) ?? state.riskFlag,
-        decision: (snapped.decision as string) ?? state.decision,
-        promptVersions: (snapped.promptVersions as GraphState["promptVersions"]) ?? state.promptVersions,
-        experimentAssignments: (snapped.experimentAssignments as GraphState["experimentAssignments"]) ?? state.experimentAssignments,
-      };
+    if (latest?.stateJson && typeof latest.stateJson === "object") {
+      state = hydrateContentStateFromSnapshot(state, latest.stateJson as Record<string, unknown>);
     }
   }
   const stepsToRun = STEPS.slice(startIdx);

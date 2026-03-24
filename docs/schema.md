@@ -22,4 +22,7 @@ See `orchestrator/prisma/schema.prisma` for the full schema. Tổng quan kiến 
 ```bash
 npm run db:migrate:dev   # Create and apply migrations
 npm run db:migrate       # Deploy migrations (production)
+npm run db:generate      # Regenerate Prisma client (bắt buộc sau khi schema đổi hoặc pull code có migration mới)
 ```
+
+Sau khi **pull** hoặc thêm bảng mới (ví dụ `content_drafts`): chạy `npm run db:migrate` rồi `npm run db:generate`, sau đó **restart** API và worker. Nếu chỉ generate thiếu, runtime có thể lỗi kiểu `contentDraft` undefined khi graph ghi draft.

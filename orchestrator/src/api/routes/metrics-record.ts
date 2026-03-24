@@ -1,14 +1,17 @@
 import type { FastifyInstance } from "fastify";
-import type { PrismaClient } from "@prisma/client";
-import { createContentMetricRepo } from "../../repos/content-metric.js";
+import type { createJobRepo } from "../../repos/job.js";
+import type { createContentMetricRepo } from "../../repos/content-metric.js";
 import { extractTopicIdentifiers } from "../../lib/topic-key.js";
 import { ERROR_CODES, formatErrorResponse } from "../middleware/error.js";
 
 export async function registerMetricsRecordRoute(
   app: FastifyInstance,
-  deps: { db: PrismaClient }
+  deps: {
+    jobRepo: ReturnType<typeof createJobRepo>;
+    contentMetricRepo: ReturnType<typeof createContentMetricRepo>;
+  }
 ) {
-  const metricRepo = createContentMetricRepo(deps.db);
+  const { jobRepo, contentMetricRepo } = deps;
 
   app.post<{
     Params: { jobId: string };
@@ -23,10 +26,7 @@ export async function registerMetricsRecordRoute(
       );
     }
 
-    const job = await deps.db.job.findUnique({
-      where: { id: jobId },
-      include: { outputs: true },
-    });
+    const job = await jobRepo.findById(jobId);
 
     if (!job) {
       return reply.status(404).send(
@@ -38,7 +38,7 @@ export async function registerMetricsRecordRoute(
       ? extractTopicIdentifiers(job.outputs.outline)
       : { topicKey: "", topicLabel: "", topicSignature: "" };
 
-    await metricRepo.upsert({
+    await contentMetricRepo.upsert({
       jobId,
       channelId,
       topicKey: ids.topicKey || undefined,

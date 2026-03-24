@@ -68,6 +68,8 @@ Chi tiết: [docs/setup.md](docs/setup.md), [docs/technical.md](docs/technical.m
 - `GET /ready` - Readiness (DB + Redis)
 - `POST /v1/jobs/content/run` - Create & run content job
 - `GET /v1/jobs/:id` - Get job
+- `GET /v1/jobs/:id/detail` - Job + inputs/outputs/approvals + optional `contentDraft`
+- `GET /v1/content-drafts` - List content draft entities (filters: status, sourceType, jobId, pagination)
 - `POST /v1/jobs/:id/approve` | `reject` | `replay`
 - `GET /v1/metrics` - Basic metrics
 - **Dashboard API** (`/v1/dashboard/*`) - Ops dashboard & experiment reporting
@@ -99,6 +101,8 @@ All dashboard endpoints require API key (Bearer token) when `API_KEY` is set.
 Chạy cùng `npm run dev:full` hoặc riêng: `npm run dev:admin` (sau khi orchestrator đã chạy).
 
 Card **LLM observability (Langfuse)** trên Ops Dashboard và Settings: trạng thái cấu hình, tóm tắt metrics (nếu Langfuse API trả), link mở UI Langfuse.
+
+Trang **Draft nội dung** (`/content-drafts`): bảng các bản ghi `content_draft` (preview + link tới job). Từ job detail có link lọc theo `?jobId=` khi job đã có draft.
 
 Nếu orchestrator có `API_KEY`, thêm vào `admin/.env`:
 ```

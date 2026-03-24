@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import type { PrismaClient } from "@prisma/client";
+import type { createContentDraftRepo } from "../../repos/content-draft.js";
 
 export async function registerContentDraftRoutes(
   app: FastifyInstance,
-  deps: { db: PrismaClient }
+  deps: { contentDraftRepo: ReturnType<typeof createContentDraftRepo> }
 ) {
-  const { db } = deps;
+  const { contentDraftRepo } = deps;
 
   app.get<{
     Querystring: {
@@ -22,35 +22,13 @@ export async function registerContentDraftRoutes(
     const sourceType = req.query.sourceType?.trim() || undefined;
     const jobId = req.query.jobId?.trim() || undefined;
 
-    const jobFilter: { status?: string; sourceType?: string } = {};
-    if (status) jobFilter.status = status;
-    if (sourceType) jobFilter.sourceType = sourceType;
-
-    const where = {
-      ...(jobId ? { jobId } : {}),
-      ...(Object.keys(jobFilter).length > 0 ? { job: jobFilter } : {}),
-    };
-
-    const [rows, total] = await Promise.all([
-      db.contentDraft.findMany({
-        where,
-        take: limit,
-        skip: offset,
-        orderBy: { updatedAt: "desc" },
-        include: {
-          job: {
-            select: {
-              id: true,
-              status: true,
-              decision: true,
-              sourceType: true,
-              completedAt: true,
-            },
-          },
-        },
-      }),
-      db.contentDraft.count({ where }),
-    ]);
+    const { rows, total } = await contentDraftRepo.listPagedForApi({
+      jobId,
+      jobStatus: status,
+      jobSourceType: sourceType,
+      limit,
+      offset,
+    });
 
     return {
       total,

@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import type { Logger } from "pino";
 import { z } from "zod";
-import { createPromptVersionRepo } from "../../repos/prompt-version.js";
+import type { createPromptVersionRepo } from "../../repos/prompt-version.js";
 import {
   PromptDryRunError,
   runPromptDryRun,
@@ -19,9 +19,14 @@ const dryRunBodySchema = z.object({
 
 export async function registerPromptVersionRoutes(
   app: FastifyInstance,
-  deps: { db: PrismaClient; logger: Logger; env: Env }
+  deps: {
+    promptVersionRepo: ReturnType<typeof createPromptVersionRepo>;
+    db: PrismaClient;
+    logger: Logger;
+    env: Env;
+  }
 ) {
-  const repo = createPromptVersionRepo(deps.db);
+  const repo = deps.promptVersionRepo;
 
   app.get("/v1/prompts", async () => {
     const types = repo.PROMPT_TYPES;
@@ -66,11 +71,7 @@ export async function registerPromptVersionRoutes(
       );
     }
 
-    const latest = await deps.db.promptVersion.findFirst({
-      where: { type },
-      orderBy: { version: "desc" },
-    });
-    const version = (latest?.version ?? 0) + 1;
+    const version = await repo.nextVersionNumber(type);
 
     const created = await repo.create({
       type,

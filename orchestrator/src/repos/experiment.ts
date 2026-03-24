@@ -18,6 +18,13 @@ export type CreateArmInput = {
   bucketEnd: number;
 };
 
+export type CreateExperimentArmBodyInput = {
+  name: string;
+  promptVersion: number;
+  bucketStart: number;
+  bucketEnd: number;
+};
+
 export function createExperimentRepo(db: PrismaClient) {
   return {
     async create(input: CreateExperimentInput) {
@@ -89,6 +96,47 @@ export function createExperimentRepo(db: PrismaClient) {
       return db.experiment.update({
         where: { id },
         data: { status },
+      });
+    },
+
+    async createExperimentWithArms(
+      input: CreateExperimentInput,
+      arms: CreateExperimentArmBodyInput[]
+    ) {
+      return db.$transaction(async (tx) => {
+        const exp = await tx.experiment.create({
+          data: {
+            name: input.name,
+            nodeType: input.nodeType,
+            scope: input.scope,
+            scopeValue: input.scopeValue ?? null,
+            numBuckets: input.numBuckets ?? 100,
+            status: EXPERIMENT_STATUS.DRAFT,
+          },
+        });
+        const createdArms: { id: string; name: string }[] = [];
+        for (const arm of arms) {
+          const row = await tx.experimentArm.create({
+            data: {
+              experimentId: exp.id,
+              name: arm.name,
+              promptType: input.nodeType,
+              promptVersion: arm.promptVersion,
+              bucketStart: arm.bucketStart,
+              bucketEnd: arm.bucketEnd,
+            },
+          });
+          createdArms.push({ id: row.id, name: row.name });
+        }
+        return { experiment: exp, createdArms };
+      });
+    },
+
+    async listDailyResultsSince(experimentId: string, since: Date) {
+      return db.experimentResultsDaily.findMany({
+        where: { experimentId, metricDate: { gte: since } },
+        include: { arm: true },
+        orderBy: { metricDate: "desc" },
       });
     },
   };

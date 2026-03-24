@@ -92,11 +92,6 @@ export function createJobRepo(db: PrismaClient) {
       });
     },
 
-    /** @deprecated use setProcessing */
-    async setRunning(jobId: string) {
-      return this.setProcessing(jobId);
-    },
-
     async incrementRetryCount(jobId: string) {
       return db.job.update({
         where: { id: jobId },
@@ -135,6 +130,36 @@ export function createJobRepo(db: PrismaClient) {
 
     toReviewScore(v: Decimal | null): number | null {
       return v ? Number(v) : null;
+    },
+
+    async summarizeMetrics() {
+      const [byStatus, byDecision] = await Promise.all([
+        db.job.groupBy({
+          by: ["status"],
+          _count: { id: true },
+        }),
+        db.job.groupBy({
+          by: ["decision"],
+          where: { decision: { not: null } },
+          _count: { id: true },
+        }),
+      ]);
+
+      const statusCounts = Object.fromEntries(
+        byStatus.map((r) => [r.status, r._count.id])
+      );
+      const decisionCounts = Object.fromEntries(
+        byDecision.map((r) => [r.decision!, r._count.id])
+      );
+      const total = byStatus.reduce((s, r) => s + r._count.id, 0);
+
+      return {
+        jobs: {
+          byStatus: statusCounts,
+          byDecision: decisionCounts,
+          total,
+        },
+      };
     },
   };
 }

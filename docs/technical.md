@@ -41,7 +41,7 @@ Source (RSS/Webhook/Manual) → Normalize → Planner → Scorer → Writer → 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         Orchestrator (Fastify API)                            │
 │  Port: 3000 │ Auth: Bearer API_KEY (optional)                                │
-│  Routes: jobs, approval, publish, metrics, prompts, experiments, dashboard    │
+│  Routes: jobs, content-drafts, approval, publish, metrics, prompts, experiments, dashboard │
 └───┬─────────────────────────────────┬───────────────────────────────────────┘
     │                                 │
     │  Sync: runGraph()                │  Async (USE_QUEUE=1)
@@ -56,7 +56,7 @@ Source (RSS/Webhook/Manual) → Normalize → Planner → Scorer → Writer → 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         Content Graph (runGraph)                              │
 │  Steps: normalize → planner → scorer → writer → reviewer → decision         │
-│  Persists: JobStateSnapshot (resume), ContentVersion (rollback)              │
+│  Persists: JobStateSnapshot (resume), ContentVersion (rollback), ContentDraft (1:1 job) │
 └─────────────────────────────────────────────────────────────────────────────┘
     │
     ▼
@@ -75,7 +75,7 @@ Source (RSS/Webhook/Manual) → Normalize → Planner → Scorer → Writer → 
 ```
 orchestrator/src/
 ├── index.ts                 # Entry: env, db, redis, jobService, server
-├── worker/index.ts           # BullMQ worker (USE_QUEUE=1)
+├── worker/index.ts           # BullMQ worker (USE_QUEUE=1); `import "dotenv/config"` để đọc `.env` gốc
 ├── config/
 │   ├── env.ts               # Zod env validation
 │   └── constants.ts         # DECISION, JOB_STATUS, THRESHOLDS, REDIS_TTL
@@ -132,11 +132,11 @@ admin/src/
 ├── index.css
 ├── app/
 │   ├── App.tsx              # Providers, ProLayout, Suspense, global modals
-│   └── opsLazyRoutes.tsx    # Lazy pages + opsProLayoutRoute (menu nhóm Trend & crawl)
+│   └── opsLazyRoutes.tsx    # Lazy pages + opsProLayoutRoute (Job, Draft nội dung, Trend & crawl, …)
 ├── lib/
 │   └── api.ts               # fetchApi, fetchPost, api.*
 ├── features/ops/
-│   ├── pages/               # OpsDashboardPage, JobsListPage, JobDetailPage, etc.
+│   ├── pages/               # OpsDashboardPage, JobsListPage, JobDetailPage, ContentDraftsPage, …
 │   ├── components/          # JobStepsTimeline, ExperimentTable, etc.
 │   ├── hooks/               # useJobDetail, useDashboardData, etc.
 │   ├── services/            # jobService, experimentService, dashboardService
@@ -217,6 +217,7 @@ Schema đầy đủ: `orchestrator/prisma/schema.prisma`.
 | **Job** | Job chính: id, traceId, status, decision, topicScore, reviewScore, retryCount, idempotencyKey |
 | **JobInput** | rawPayload, normalizedPayload (JSON) |
 | **JobOutput** | outline, draft, reviewNotes, finalDecisionPayload, promptVersions, experimentAssignments |
+| **ContentDraft** | Bản ghi 1:1 với job sau **content graph** xong: outline, body, reviewNotes, snapshot decision/scores; upsert cùng lúc với `JobOutput` (không tạo cho job chỉ chạy `trend_aggregate`) |
 | **ContentVersion** | Version history theo job (version, draft, reviewScore) — debug, rollback |
 | **JobStateSnapshot** | Graph state sau mỗi bước — crash resume |
 | **Approval** | Audit log: action, actor, reason |
@@ -233,6 +234,7 @@ Schema đầy đủ: `orchestrator/prisma/schema.prisma`.
 ```
 Job 1──1 JobInput
 Job 1──1 JobOutput
+Job 1──0..1 ContentDraft (sau khi content graph hoàn thành)
 Job 1──* Approval, PublishedContent, ContentMetric, JobStateSnapshot, ContentVersion
 Experiment 1──* ExperimentArm
 Experiment 1──* ExperimentResultsDaily
@@ -287,7 +289,13 @@ npm run db:seed           # Seed prompts (nếu có)
 }
 ```
 
-### 5.3 Replay & Resume
+### 5.3 Persistence sau khi graph xong
+
+- **`JobOutput`**: outline, draft, reviewNotes, `finalDecisionPayload`, prompt versions, v.v.
+- **`ContentDraft`**: upsert một dòng `content_draft` (cùng nội dung chính: outline + body + review + snapshot scores/decision). Job **trend** (`trend_aggregate`) không chạy content graph → **không** có `ContentDraft`.
+- **`GET /v1/jobs/:jobId/detail`** (và Admin job detail) có thể trả thêm `contentDraft` khi đã có entity.
+
+### 5.4 Replay & Resume
 
 - **Replay**: `POST /v1/jobs/:jobId/replay` với `{ fromStep: "planner" }` — chạy lại từ bước đó
 - **Resume**: Crash recovery dựa trên `JobStateSnapshot` — load state trước step lỗi
@@ -321,9 +329,10 @@ Base URL: `http://localhost:3000`
 |--------|------|-------|
 | POST | `/v1/jobs/trend/run` | Trend aggregate. Body: `domain?`, `rawItems[]`, `channel?`. Mỗi item cần map được nguồn: `url` (host known) hoặc `sourceId`. Output: `trendCandidates` |
 | POST | `/v1/jobs/content/run` | Tạo và chạy job. Body: sourceType, rawItems, publishPolicy, channel. Hoặc trendJobId + topicIndex? (lấy rawItems từ trend job) |
-| GET | `/v1/jobs` | List jobs (limit, offset, status) |
+| GET | `/v1/jobs` | List jobs: `limit`, `offset`, `status`, `sourceType?`; response có `total` |
 | GET | `/v1/jobs/:jobId` | Chi tiết job |
-| GET | `/v1/jobs/:jobId/detail` | Chi tiết đầy đủ (inputs, outputs, approvals) |
+| GET | `/v1/jobs/:jobId/detail` | Chi tiết đầy đủ (inputs, outputs, approvals, `contentDraft?`) |
+| GET | `/v1/content-drafts` | Danh sách entity draft: `limit` (≤100), `offset`, `status?` (filter theo **job.status**), `sourceType?`, `jobId?` → `{ total, items[] }` (preview outline/body + tóm tắt job) |
 | POST | `/v1/jobs/:jobId/replay` | Replay, body: `{ fromStep? }` |
 | POST | `/v1/jobs/:jobId/approve` | Approve (REVIEW_REQUIRED). Body: actor, reason? |
 | POST | `/v1/jobs/:jobId/reject` | Reject. Body: actor, reason (required) |

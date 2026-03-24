@@ -8,9 +8,6 @@ export async function planner(
   ctx: GraphContext
 ): Promise<Partial<GraphState>> {
   const items = state.normalizedItems;
-  if (items.length === 0) {
-    return {};
-  }
 
   const sourceText = JSON.stringify(
     items.map((i) => ({ title: i.title, body: i.body.slice(0, 500) })),

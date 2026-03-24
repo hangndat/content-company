@@ -109,6 +109,7 @@ cp admin/.env.example admin/.env
 
 ```bash
 npm run db:migrate
+npm run db:generate   # luôn chạy sau migrate hoặc sau git pull nếu có thay đổi Prisma schema
 npm run db:seed   # (nếu có seed)
 ```
 
@@ -151,6 +152,7 @@ npm run dev:admin
 
 ```bash
 # .env: USE_QUEUE=1 (mặc định trong .env.example)
+# Worker đọc cùng file .env ở thư mục gốc repo (dotenv trong orchestrator/src/worker/index.ts).
 
 # Một lệnh: API + worker
 npm run dev:queue
@@ -188,7 +190,7 @@ Chi tiết: [n8n/README.md](../n8n/README.md), [technical.md](technical.md#93-de
 1. **Health**: `curl http://localhost:3000/health`
 2. **Ready**: `curl http://localhost:3000/ready`
 3. **Trigger job**: `npm run trigger:job`
-4. **Admin**: Mở http://localhost:5174
+4. **Admin**: Mở http://localhost:5174 — menu **Draft nội dung** (`/content-drafts`) liệt kê `content_draft`; chi tiết outline/body đầy đủ trên trang job (`/jobs/:id`).
 5. **Langfuse** (nếu bật): Ops Dashboard / Settings → card “LLM observability”; `GET /v1/settings/observability?days=7`
 
 ---
@@ -219,3 +221,4 @@ npm run aggregate:experiments
 | Langfuse “Invalid credentials” / không có user sau seed | Trong log `langfuse-web`: nếu thấy `LANGFUSE_INIT_ORG_ID is not set` → mọi `LANGFUSE_INIT_USER_*` bị bỏ qua. Thêm UUID `LANGFUSE_INIT_ORG_ID` (và `LANGFUSE_INIT_PROJECT_ID`) trong `.env.langfuse`, rồi `npm run langfuse:reset` + `langfuse:up` |
 | Langfuse login / session lỗi | `NEXTAUTH_SECRET` và `SALT` phải đủ mạnh (`openssl rand -base64 32`), không dùng mật khẩu ngắn |
 | Metrics trống trên Admin | Langfuse metrics API có thể trả schema khác phiên bản; trace vẫn xem trực tiếp trên UI Langfuse |
+| Worker lỗi graph / `contentDraft` undefined | Chạy `npm run db:migrate` và `npm run db:generate` từ root, restart worker. Đảm bảo `.env` gốc có `DATABASE_URL` (worker load dotenv từ root) |

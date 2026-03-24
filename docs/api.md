@@ -39,6 +39,20 @@ Run a trend aggregate job (`sourceType: trend_aggregate`). Response shape: `{ jo
 
 **GET** `/v1/jobs/:jobId` or `/detail`: completed trend jobs expose `output.trendCandidates`.
 
+### GET /v1/content-drafts
+List persisted **ContentDraft** rows (content pipeline đã xong). Giống các route `/v1/*` khác: nếu env có `API_KEY` thì cần `Authorization: Bearer <API_KEY>`.
+
+**Query (tất cả optional):**
+- `limit` — default 50, max 100
+- `offset` — default 0
+- `status` — lọc theo **trạng thái job** (ví dụ `completed`, `review_required`)
+- `sourceType` — lọc theo `job.sourceType` (`rss`, `trend`, …)
+- `jobId` — chỉ draft của một job (UUID)
+
+**Response:** `{ "total": number, "items": [ { "id", "jobId", "outlinePreview", "bodyPreview", "decision", "topicScore", "reviewScore", "updatedAt", "job": { "id", "status", "decision", "sourceType", "completedAt" } } ] }`
+
+Previews là chuỗi rút gọn; nội dung đầy đủ nằm trong `GET /v1/jobs/:jobId/detail` (`contentDraft` + `job.output`).
+
 ### GET /v1/jobs/:jobId
 Get job status and output.
 

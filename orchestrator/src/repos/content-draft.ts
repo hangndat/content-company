@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 export type UpsertContentDraftInput = {
   jobId: string;
@@ -10,17 +10,55 @@ export type UpsertContentDraftInput = {
   reviewScore?: number | null;
 };
 
+export type ListContentDraftsForApiInput = {
+  jobId?: string;
+  jobStatus?: string;
+  jobSourceType?: string;
+  limit: number;
+  offset: number;
+};
+
+const listInclude = {
+  job: {
+    select: {
+      id: true,
+      status: true,
+      decision: true,
+      sourceType: true,
+      completedAt: true,
+    },
+  },
+} as const;
+
+function buildContentDraftWhere(input: ListContentDraftsForApiInput): Prisma.ContentDraftWhereInput {
+  const jobFilter: { status?: string; sourceType?: string } = {};
+  if (input.jobStatus) jobFilter.status = input.jobStatus;
+  if (input.jobSourceType) jobFilter.sourceType = input.jobSourceType;
+  return {
+    ...(input.jobId ? { jobId: input.jobId } : {}),
+    ...(Object.keys(jobFilter).length > 0 ? { job: jobFilter } : {}),
+  };
+}
+
 export function createContentDraftRepo(db: PrismaClient) {
   return {
+    async listPagedForApi(input: ListContentDraftsForApiInput) {
+      const where = buildContentDraftWhere(input);
+      const [rows, total] = await Promise.all([
+        db.contentDraft.findMany({
+          where,
+          take: input.limit,
+          skip: input.offset,
+          orderBy: { updatedAt: "desc" },
+          include: listInclude,
+        }),
+        db.contentDraft.count({ where }),
+      ]);
+      return { rows, total };
+    },
+
     async upsert(input: UpsertContentDraftInput) {
-      // Stale `node_modules/.prisma` (e.g. after git pull) leaves this undefined at runtime.
-      const contentDraft = db.contentDraft;
-      if (!contentDraft) {
-        throw new Error(
-          "Prisma client has no contentDraft delegate. From repo root run: npm run db:migrate && npm run db:generate, then restart the API and worker."
-        );
-      }
-      return contentDraft.upsert({
+      return db.contentDraft.upsert({
         where: { jobId: input.jobId },
         create: {
           jobId: input.jobId,

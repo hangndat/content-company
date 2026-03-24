@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { createCrawledArticleRepo } from "../../repos/crawled-article.js";
 import { ERROR_CODES, formatErrorResponse } from "../middleware/error.js";
 
 const listQuerySchema = z.object({
@@ -13,9 +13,9 @@ const listQuerySchema = z.object({
 
 export async function registerCrawledArticlesRoutes(
   app: FastifyInstance,
-  deps: { db: PrismaClient }
+  deps: { crawledArticleRepo: ReturnType<typeof createCrawledArticleRepo> }
 ) {
-  const { db } = deps;
+  const { crawledArticleRepo } = deps;
 
   app.get("/v1/crawled-articles", async (req, reply) => {
     const parsed = listQuerySchema.safeParse(req.query);
@@ -28,39 +28,13 @@ export async function registerCrawledArticlesRoutes(
     const limit = lim ?? 50;
     const offset = off ?? 0;
 
-    const where: Prisma.CrawledArticleWhereInput = {};
-    if (domain) where.trendDomain = domain;
-    if (q?.trim()) {
-      const s = q.trim();
-      where.OR = [
-        { title: { contains: s, mode: "insensitive" } },
-        { url: { contains: s, mode: "insensitive" } },
-      ];
-    }
-    if (processed === "yes") where.processedForTrendAt = { not: null };
-    if (processed === "no") where.processedForTrendAt = null;
-
-    const [items, total] = await Promise.all([
-      db.crawledArticle.findMany({
-        where,
-        orderBy: { lastSeenAt: "desc" },
-        take: limit,
-        skip: offset,
-        select: {
-          id: true,
-          dedupeKey: true,
-          trendDomain: true,
-          url: true,
-          title: true,
-          bodyPreview: true,
-          sourceId: true,
-          firstSeenAt: true,
-          lastSeenAt: true,
-          processedForTrendAt: true,
-        },
-      }),
-      db.crawledArticle.count({ where }),
-    ]);
+    const { items, total } = await crawledArticleRepo.listPaged({
+      domain,
+      q,
+      processed,
+      limit,
+      offset,
+    });
 
     return {
       items: items.map((r) => ({

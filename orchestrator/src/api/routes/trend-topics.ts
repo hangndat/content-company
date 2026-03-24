@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { PrismaClient } from "@prisma/client";
+import type { createTrendTopicObservationRepo } from "../../repos/trend-topic-observation.js";
+import { articleCountFromCandidate } from "../../lib/trend-candidate-display.js";
 import { ERROR_CODES, formatErrorResponse } from "../middleware/error.js";
 
 const listQuerySchema = z.object({
@@ -13,28 +14,11 @@ const idParamSchema = z.object({
   id: z.string().uuid(),
 });
 
-function articleCountFromCandidate(c: unknown): number {
-  if (!c || typeof c !== "object") return 0;
-  const o = c as {
-    sourceArticles?: unknown[];
-    itemRefs?: unknown[];
-    sourceCount?: unknown;
-  };
-  if (Array.isArray(o.sourceArticles) && o.sourceArticles.length > 0) {
-    return o.sourceArticles.length;
-  }
-  if (Array.isArray(o.itemRefs) && o.itemRefs.length > 0) {
-    return o.itemRefs.length;
-  }
-  if (typeof o.sourceCount === "number") return o.sourceCount;
-  return 0;
-}
-
 export async function registerTrendTopicsRoutes(
   app: FastifyInstance,
-  deps: { db: PrismaClient }
+  deps: { trendTopicObservationRepo: ReturnType<typeof createTrendTopicObservationRepo> }
 ) {
-  const { db } = deps;
+  const { trendTopicObservationRepo } = deps;
 
   app.get("/v1/trend-topics/:id", async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params);
@@ -45,19 +29,7 @@ export async function registerTrendTopicsRoutes(
     }
     const { id } = parsed.data;
 
-    const obs = await db.trendTopicObservation.findUnique({
-      where: { id },
-      include: {
-        job: {
-          select: {
-            id: true,
-            status: true,
-            completedAt: true,
-            outputs: { select: { trendCandidates: true } },
-          },
-        },
-      },
-    });
+    const obs = await trendTopicObservationRepo.findByIdWithJobOutputs(id);
 
     if (!obs) {
       return reply.status(404).send(
@@ -98,24 +70,12 @@ export async function registerTrendTopicsRoutes(
     const { domain, limit: lim, offset: off } = parsed.data;
     const limit = lim ?? 50;
     const offset = off ?? 0;
-    const where = domain ? { trendDomain: domain } : {};
 
-    const [rows, total] = await Promise.all([
-      db.trendTopicObservation.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip: offset,
-        include: {
-          job: {
-            select: {
-              outputs: { select: { trendCandidates: true } },
-            },
-          },
-        },
-      }),
-      db.trendTopicObservation.count({ where }),
-    ]);
+    const { rows, total } = await trendTopicObservationRepo.listPaged({
+      domain,
+      limit,
+      offset,
+    });
 
     const items = rows.map((r) => {
       const raw = r.job.outputs?.trendCandidates;

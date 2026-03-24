@@ -59,6 +59,15 @@ export function createPromptVersionRepo(db: PrismaClient) {
       });
     },
 
+    /** Next version number for a new row (latest + 1, or 1 if none). */
+    async nextVersionNumber(type: string): Promise<number> {
+      const latest = await db.promptVersion.findFirst({
+        where: { type },
+        orderBy: { version: "desc" },
+      });
+      return (latest?.version ?? 0) + 1;
+    },
+
     PROMPT_TYPES,
   };
 }

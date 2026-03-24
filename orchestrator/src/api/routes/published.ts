@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import type { createPublishedRepo } from "../../repos/published.js";
 import { ERROR_CODES, formatErrorResponse } from "../middleware/error.js";
 
 const publishedQuerySchema = z.object({
@@ -13,9 +13,9 @@ const publishedQuerySchema = z.object({
 
 export async function registerPublishedRoutes(
   app: FastifyInstance,
-  deps: { db: PrismaClient }
+  deps: { publishedRepo: ReturnType<typeof createPublishedRepo> }
 ) {
-  const { db } = deps;
+  const { publishedRepo } = deps;
 
   app.get("/v1/published", async (req, reply) => {
     const parsed = publishedQuerySchema.safeParse(req.query);
@@ -31,36 +31,13 @@ export async function registerPublishedRoutes(
 
     const { limit, offset, status, from, to } = parsed.data;
 
-    const where: Record<string, unknown> = {};
-    if (status) {
-      where.status = status;
-    }
-    if (from || to) {
-      where.createdAt = {};
-      if (from) {
-        (where.createdAt as Record<string, Date>).gte = new Date(from);
-        (where.createdAt as Record<string, Date>).gte.setHours(0, 0, 0, 0);
-      }
-      if (to) {
-        (where.createdAt as Record<string, Date>).lte = new Date(to);
-        (where.createdAt as Record<string, Date>).lte.setHours(23, 59, 59, 999);
-      }
-    }
-
-    const [items, total] = await Promise.all([
-      db.publishedContent.findMany({
-        where,
-        include: {
-          job: {
-            select: { id: true, status: true, decision: true, createdAt: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip: offset,
-      }),
-      db.publishedContent.count({ where }),
-    ]);
+    const { items, total } = await publishedRepo.listPagedWithJob({
+      limit,
+      offset,
+      status,
+      from,
+      to,
+    });
 
     return {
       items: items.map((p) => ({
